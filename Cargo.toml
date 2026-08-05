@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = [
+    "rust/ledger-engine",
+    "rust/fee-engine",
+    "rust/settlement-engine",
+    "rust/reconciliation-engine",
+    "rust/financial-engine",
+    "rust/shared",
+]
+
+[workspace.package]
+edition = "2021"
+license = "PROPRIETARY"
+authors = ["Kudi AI Bank Engineering <engineering@kudiaibank.com>"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+opt-level = 0

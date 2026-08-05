@@ -1,0 +1,43 @@
+[package]
+name = "ledger-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Double-entry ledger engine responsible for posting, balancing, and immutable transaction records."
+license = "PROPRIETARY"
+authors = ["Kudi AI Bank Engineering <engineering@kudiaibank.com>"]
+build = "build.rs"
+
+[lib]
+name = "ledger_engine"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ledger-engine-server"
+path = "src/bin/server.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+rust_decimal = { version = "1", default-features = false, features = ["serde", "std"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tonic = "0.11"
+prost = "0.12"
+sqlx = { version = "0.7", default-features = false, features = [
+    "postgres",
+    "runtime-tokio-rustls",
+    "chrono",
+    "uuid",
+    "migrate",
+    "macros",
+] }
+
+[build-dependencies]
+tonic-build = "0.11"
+
+[dev-dependencies]
+tokio-test = "0.4"

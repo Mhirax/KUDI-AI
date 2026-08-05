@@ -1,0 +1,580 @@
+// Kudi AI Bank — Prisma Schema (Phase 1 Foundation)
+// Domain models are intentionally omitted; this establishes datasource,
+// generator, and connection configuration only.
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================================================
+// Identity & Auth bounded context (modules/identity)
+// Domain entities (Account, Transaction, Ledger, etc.) for other
+// bounded contexts are added module-by-module in subsequent phases,
+// each respecting its own bounded-context ownership boundary.
+// ==========================================================================
+
+enum UserRole {
+  CUSTOMER
+  SUPPORT_AGENT
+  COMPLIANCE_OFFICER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  LOCKED
+  DEACTIVATED
+}
+
+model User {
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  phoneNumber         String    @unique
+  passwordHash        String
+  firstName           String
+  lastName            String
+  role                UserRole  @default(CUSTOMER)
+  status              UserStatus @default(PENDING_VERIFICATION)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  refreshTokens RefreshToken[]
+
+  @@index([status])
+  @@map("users")
+}
+
+model RefreshToken {
+  id                String    @id @default(uuid())
+  userId            String
+  tokenHash         String    @unique
+  family            String
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([family])
+  @@map("refresh_tokens")
+}
+
+// ==========================================================================
+// Accounts & Wallets bounded context (modules/accounts)
+// Note: `userId` on Account is a plain scalar reference to Identity's
+// User.id — deliberately *not* a Prisma relation, preserving
+// bounded-context isolation at the database level (see
+// modules/accounts/README.md).
+// ==========================================================================
+
+enum AccountType {
+  WALLET
+  SAVINGS
+  CURRENT
+}
+
+// Mirrors shared/enums/account-status.enum.ts
+enum AccountStatus {
+  ACTIVE
+  DORMANT
+  FROZEN
+  CLOSED
+  PENDING_VERIFICATION
+}
+
+model Account {
+  id            String        @id @default(uuid())
+  userId        String
+  accountNumber String        @unique
+  accountType   AccountType
+  currency      String
+  /// Minor units (kobo/cents), stored as a native BigInt — never a float.
+  balance       BigInt        @default(0)
+  status        AccountStatus @default(PENDING_VERIFICATION)
+  /// Optimistic concurrency token; incremented on every mutation.
+  version       Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("accounts")
+}
+
+// ==========================================================================
+// Transfers bounded context (modules/transfers)
+// `sourceAccountId`/`destinationAccountId` are plain scalar references
+// to Accounts' Account.id — deliberately not Prisma relations, for the
+// same bounded-context-isolation reason as Account.userId above.
+// ==========================================================================
+
+enum TransferType {
+  INTERNAL
+  EXTERNAL
+}
+
+// Mirrors shared/enums/transaction-status.enum.ts
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  SUCCESSFUL
+  FAILED
+  REVERSED
+  CANCELLED
+}
+
+model Transfer {
+  id                     String            @id @default(uuid())
+  /// Also serves as the platform's idempotency key for transfer initiation.
+  reference              String            @unique
+  type                   TransferType
+  initiatorUserId        String
+  sourceAccountId        String
+  /// Populated for INTERNAL transfers only.
+  destinationAccountId   String?
+  /// Populated for EXTERNAL transfers only.
+  recipientBankCode      String?
+  recipientAccountNumber String?
+  recipientAccountName   String?
+  /// Minor units (kobo/cents) — never a float.
+  amountMinorUnits       BigInt
+  feeMinorUnits          BigInt
+  currency               String
+  narration              String
+  status                 TransactionStatus @default(PENDING)
+  failureReason          String?
+  /// Flutterwave's own transfer ID, for EXTERNAL transfers.
+  providerReference      String?
+  /// Optimistic concurrency token.
+  version                Int               @default(0)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  @@index([initiatorUserId])
+  @@index([sourceAccountId])
+  @@index([providerReference])
+  @@index([status])
+  @@map("transfers")
+}
+
+// ==========================================================================
+// Compliance/KYC bounded context (modules/compliance)
+// `userId` is a plain scalar reference to Identity's User.id — same
+// bounded-context-isolation reasoning as Account.userId above.
+//
+// SECURITY: raw BVN/NIN values are never persisted, only a SHA-256
+// hash (dedup) and a masked display form. See
+// modules/compliance/domain/entities/kyc-profile.entity.ts.
+// ==========================================================================
+
+// Mirrors shared vocabulary in modules/compliance/domain/enums/kyc-tier.enum.ts
+enum KycTier {
+  TIER_1
+  TIER_2
+  TIER_3
+}
+
+model KycProfile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  tier          KycTier   @default(TIER_1)
+  bvnVerifiedAt DateTime?
+  /// SHA-256 hash only — never the raw BVN.
+  bvnHash       String?
+  /// Last-4-digit masked form, e.g. "*******1234" — safe for display.
+  bvnMasked     String?
+  ninVerifiedAt DateTime?
+  /// SHA-256 hash only — never the raw NIN.
+  ninHash       String?
+  ninMasked     String?
+  /// Optimistic concurrency token.
+  version       Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tier])
+  @@map("kyc_profiles")
+}
+
+// ==========================================================================
+// Ledger, Funding, Bills & Notifications — appended from the verified module
+// package handoff (see git history / delivery notes for provenance).
+// ==========================================================================
+// Ledger bounded context (modules/ledger)
+// Append-only projection of Accounts' credited/debited events into an
+// immutable transaction history. `accountId`/`userId` are plain scalar
+// references (no Prisma relations) — same bounded-context-isolation
+// reasoning as Account.userId above. Rows are never updated or
+// deleted; corrections arrive as new compensating entries.
+
+enum EntryDirection {
+  DEBIT
+  CREDIT
+}
+
+// Mirrors modules/ledger/domain/enums/ledger-entry-type.enum.ts
+enum LedgerEntryType {
+  TRANSFER
+  DEPOSIT
+  BILL_PAYMENT
+  ADJUSTMENT
+}
+
+model LedgerEntry {
+  id        String          @id @default(uuid())
+  accountId String
+  /// Owner of the account at recording time — denormalized for history queries.
+  userId    String
+  direction EntryDirection
+  /// Minor units (kobo/cents) — never a float.
+  amountMinorUnits BigInt
+  /// Account balance immediately after this entry, minor units.
+  balanceAfterMinorUnits BigInt
+  currency  String
+  entryType LedgerEntryType
+  reference String
+  /// eventId of the domain event this entry was projected from — the idempotency key.
+  sourceEventId String   @unique
+  /// When the balance mutation occurred (event time), vs createdAt (write time).
+  occurredAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([accountId, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([reference])
+  @@map("ledger_entries")
+}
+
+// Funding bounded context (modules/funding)
+// `userId`/`accountId` are plain scalar references — same
+// bounded-context-isolation reasoning as Account.userId above.
+
+// Mirrors modules/funding/domain/enums/deposit-channel.enum.ts
+enum DepositChannel {
+  VIRTUAL_ACCOUNT
+  CHECKOUT
+}
+
+model Deposit {
+  id        String         @id @default(uuid())
+  /// Also our tx_ref at Flutterwave for checkout deposits.
+  reference String         @unique
+  channel   DepositChannel
+  userId    String
+  accountId String
+  /// Minor units (kobo/cents) — never a float.
+  amountMinorUnits BigInt
+  currency  String
+  status    TransactionStatus @default(PENDING)
+  /// Flutterwave's transaction id — unique, the webhook idempotency key.
+  providerTransactionId String? @unique
+  failureReason String?
+  /// Optimistic concurrency token.
+  version   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([status])
+  @@map("deposits")
+}
+
+model VirtualAccount {
+  id        String  @id @default(uuid())
+  userId    String
+  /// One virtual account per Kudi wallet account.
+  accountId String  @unique
+  virtualAccountNumber String @unique
+  bankName  String
+  /// The tx_ref registered with Flutterwave — echoed in credit webhooks.
+  providerReference String @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("virtual_accounts")
+}
+
+// Bills bounded context (modules/bills)
+// `userId`/`accountId` are plain scalar references — same
+// bounded-context-isolation reasoning as Account.userId above.
+
+// Mirrors modules/bills/domain/enums/bill-category.enum.ts
+enum BillCategory {
+  AIRTIME
+  MOBILE_DATA
+  ELECTRICITY
+  CABLE_TV
+  INTERNET
+}
+
+model BillPayment {
+  id        String       @id @default(uuid())
+  /// Also our reference at Flutterwave for this bill payment.
+  reference String       @unique
+  userId    String
+  accountId String
+  category  BillCategory
+  billerCode String
+  itemCode   String
+  billerName String
+  /// Phone number / meter number / smartcard number, per category.
+  customerIdentifier String
+  /// Minor units (kobo/cents) — never a float.
+  amountMinorUnits BigInt
+  feeMinorUnits    BigInt
+  currency  String
+  status    TransactionStatus @default(PENDING)
+  providerReference String?
+  /// Provider-issued value token (e.g. prepaid electricity token).
+  valueToken String?
+  failureReason String?
+  /// Optimistic concurrency token.
+  version   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([status])
+  @@map("bill_payments")
+}
+
+// Notifications bounded context (modules/notifications)
+// Append-mostly projection of other contexts' domain events into a
+// customer-facing notification center. `userId` is a plain scalar
+// reference, as everywhere else.
+
+// Mirrors modules/notifications/domain/enums/notification-type.enum.ts
+enum NotificationType {
+  SECURITY
+  TRANSACTION
+  KYC
+  ACCOUNT
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  /// Business reference of the subject (transfer/deposit/bill reference), when one exists.
+  reference String?
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// ==========================================================================
+// Savings bounded context (modules/savings)
+// A SavingsGoal wraps a dedicated Account (accountType=SAVINGS, opened
+// via the Accounts module's own OpenAccountCommand) that holds the
+// actual funds; this table is goal metadata only — the balance itself
+// lives on Account, exactly like every other bounded context's money.
+// ==========================================================================
+
+enum SavingsGoalStatus {
+  ACTIVE
+  CLOSED
+}
+
+model SavingsGoal {
+  id                     String            @id @default(uuid())
+  userId                 String
+  /// The dedicated SAVINGS-type Account holding the actual funds.
+  savingsAccountId       String            @unique
+  /// The WALLET account deposits are pulled from / withdrawals returned to.
+  sourceAccountId        String
+  name                   String
+  /// Minor units; null = open-ended flexible savings (no fixed target).
+  targetAmountMinorUnits BigInt?
+  currency               String
+  status                 SavingsGoalStatus @default(ACTIVE)
+  /// Optimistic concurrency token.
+  version                Int               @default(0)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("savings_goals")
+}
+
+// ==========================================================================
+// Loans bounded context (modules/loans)
+// Purely internal lending against the platform's own ledger — no
+// external credit-bureau or lending-provider integration in this
+// phase (see module README).
+// ==========================================================================
+
+enum LoanStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  DISBURSED
+  REPAYING
+  REPAID
+  DEFAULTED
+}
+
+model Loan {
+  id                       String     @id @default(uuid())
+  reference                String     @unique
+  userId                   String
+  accountId                String
+  /// Minor units — requested/approved principal.
+  principalMinorUnits      BigInt
+  /// Minor units — flat fee computed at apply time.
+  feeMinorUnits            BigInt
+  /// Minor units — principal + fee; total the customer must repay.
+  totalRepayableMinorUnits BigInt
+  /// Minor units — cumulative repayments received so far.
+  amountRepaidMinorUnits   BigInt     @default(0)
+  currency                 String
+  tenorDays                Int
+  status                   LoanStatus @default(PENDING_REVIEW)
+  dueDate                  DateTime?
+  approvedByUserId         String?
+  rejectionReason          String?
+  /// Optimistic concurrency token.
+  version                  Int        @default(0)
+  createdAt                DateTime   @default(now())
+  updatedAt                DateTime   @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("loans")
+}
+
+// ==========================================================================
+// Cards bounded context (modules/cards)
+// Virtual cards are issued live via Flutterwave; physical cards are
+// requested here but fulfilled by an offline logistics process (see
+// module README) — this table tracks the request, not the shipment.
+// SECURITY: the full PAN/CVV are never persisted — only Flutterwave's
+// own card id (for further API calls) and a masked last4/expiry for
+// display purposes.
+// ==========================================================================
+
+enum CardType {
+  VIRTUAL
+  PHYSICAL
+}
+
+enum CardStatus {
+  PENDING
+  ACTIVE
+  FROZEN
+  TERMINATED
+}
+
+model Card {
+  id                String     @id @default(uuid())
+  userId            String
+  accountId         String
+  type              CardType
+  status            CardStatus @default(PENDING)
+  /// Flutterwave's card id — required for freeze/unfreeze/terminate/fund calls. Null until issuance confirms.
+  providerCardId    String?    @unique
+  last4             String?
+  expiryMonth       String?
+  expiryYear        String?
+  brand             String?
+  /// Minor units — the card's own spendable balance, funded from accountId.
+  balanceMinorUnits BigInt     @default(0)
+  currency          String
+  /// Optimistic concurrency token.
+  version           Int        @default(0)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("cards")
+}
+
+// ==========================================================================
+// Rewards bounded context (modules/rewards)
+// Points are earned from completed Transfers/Bills/Funding activity
+// (via their published domain events) and redeemed for airtime/data
+// (via Bills) or cashback (via Accounts) — see module README.
+// ==========================================================================
+
+enum RewardTransactionType {
+  EARNED
+  REDEEMED
+  REFERRAL_BONUS
+}
+
+enum RewardTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model RewardAccount {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  pointsBalance Int      @default(0)
+  totalEarned   Int      @default(0)
+  totalRedeemed Int      @default(0)
+  /// Unique shareable code, e.g. "KUDI-AB12CD".
+  referralCode  String   @unique
+  /// Optimistic concurrency token.
+  version       Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("reward_accounts")
+}
+
+model RewardTransaction {
+  id              String                  @id @default(uuid())
+  userId          String
+  type            RewardTransactionType
+  status          RewardTransactionStatus @default(COMPLETED)
+  /// Positive for EARNED/REFERRAL_BONUS, negative for REDEEMED.
+  points          Int
+  description     String
+  /// Idempotency key: the source domain event's eventId, when earned from an event.
+  sourceEventId   String?                 @unique
+  /// The transfer/bill/deposit reference that earned these points, when applicable.
+  sourceReference String?
+  redemptionType  String?
+  createdAt       DateTime                @default(now())
+
+  @@index([userId, createdAt])
+  @@map("reward_transactions")
+}
+
+model ReferralRedemption {
+  id             String   @id @default(uuid())
+  referralCode   String
+  referrerUserId String
+  refereeUserId  String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([referrerUserId])
+  @@map("referral_redemptions")
+}

@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+// Kudi AI Bank — Ledger Engine gRPC Contract
+//
+// This is the authoritative, language-agnostic contract between the
+// NestJS application layer (client) and the Rust ledger-engine
+// (server). The ledger-engine is the single source of truth for
+// account balances and the immutable double-entry transaction record;
+// NestJS's own `Account.balance` becomes a read-model projection kept
+// in sync via this API's responses, not the ledger of record.
+//
+// Codegen:
+//   - Rust:   build.rs (tonic-build) in /rust/ledger-engine
+//   - NestJS: @grpc/proto-loader, loaded at runtime by
+//             /infrastructure/grpc/ledger/ledger-engine.client.ts
+package kudi.ledger.v1;
+
+service LedgerService {
+  // Registers a new ledger account mirroring a Kudi `Account` aggregate.
+  // Called once, when an account is opened (see
+  // modules/accounts/application/event-handlers/register-ledger-account.handler.ts).
+  rpc RegisterAccount(RegisterAccountRequest) returns (RegisterAccountResponse);
+
+  // Atomically posts a balanced debit/credit pair. This is the engine's
+  // core responsibility: the debit and credit either both apply or
+  // neither does, and the two entries are permanently linked by a
+  // single transaction_id in the immutable ledger.
+  rpc PostDoubleEntry(PostDoubleEntryRequest) returns (PostDoubleEntryResponse);
+
+  // Reverses a previously-posted transaction with an equal and
+  // opposite entry pair (never mutates or deletes the original).
+  rpc ReverseTransaction(ReverseTransactionRequest) returns (ReverseTransactionResponse);
+
+  // Reads the current authoritative balance for a ledger account.
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+}
+
+message RegisterAccountRequest {
+  string external_account_id = 1; // Kudi Account.id (UUID, from Postgres/Prisma)
+  string currency = 2;            // ISO 4217, e.g. "NGN"
+}
+
+message RegisterAccountResponse {
+  string ledger_account_id = 1;
+}
+
+message PostDoubleEntryRequest {
+  // Caller-supplied idempotency key (e.g. a Transfer's reference).
+  // A retried call with the same key returns the original result
+  // without posting a second time — see the server's header comment
+  // on why this matters for a network call that can be safely retried.
+  string idempotency_key = 1;
+  string debit_external_account_id = 2;
+  string credit_external_account_id = 3;
+  int64 amount_minor_units = 4;
+  string currency = 5;
+  string narration = 6;
+}
+
+message PostDoubleEntryResponse {
+  string transaction_id = 1;
+  int64 debit_account_balance_minor_units = 2;
+  int64 credit_account_balance_minor_units = 3;
+}
+
+message ReverseTransactionRequest {
+  string original_transaction_id = 1;
+  string idempotency_key = 2;
+  string narration = 3;
+}
+
+message ReverseTransactionResponse {
+  string reversal_transaction_id = 1;
+}
+
+message GetBalanceRequest {
+  string external_account_id = 1;
+}
+
+message GetBalanceResponse {
+  int64 balance_minor_units = 1;
+  string currency = 2;
+}

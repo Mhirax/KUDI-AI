@@ -1,0 +1,24 @@
+[package]
+name = "settlement-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Settlement engine: batches and settles transactions with Flutterwave and other rails."
+license = "PROPRIETARY"
+authors = ["Kudi AI Bank Engineering <engineering@kudiaibank.com>"]
+
+[lib]
+name = "settlement_engine"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+rust_decimal = { version = "1", default-features = false, features = ["serde", "std"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tokio-test = "0.4"

@@ -1,0 +1,266 @@
+{
+  "generated": "2026-08-01T15:26:02.035Z",
+  "totalEndpoints": 59,
+  "endpoints": {
+    "Identity": [
+      {
+        "method": "POST",
+        "path": "auth/register"
+      },
+      {
+        "method": "POST",
+        "path": "auth/login"
+      },
+      {
+        "method": "POST",
+        "path": "auth/refresh"
+      },
+      {
+        "method": "POST",
+        "path": "auth/logout"
+      },
+      {
+        "method": "POST",
+        "path": "auth/change-password"
+      },
+      {
+        "method": "GET",
+        "path": "users/me"
+      },
+      {
+        "method": "GET",
+        "path": "users/:userId"
+      }
+    ],
+    "Accounts": [
+      {
+        "method": "GET",
+        "path": "accounts/me"
+      },
+      {
+        "method": "GET",
+        "path": "accounts/:accountId"
+      },
+      {
+        "method": "POST",
+        "path": "accounts/:accountId/credit"
+      },
+      {
+        "method": "POST",
+        "path": "accounts/:accountId/debit"
+      },
+      {
+        "method": "POST",
+        "path": "accounts/:accountId/freeze"
+      },
+      {
+        "method": "POST",
+        "path": "accounts/:accountId/unfreeze"
+      },
+      {
+        "method": "POST",
+        "path": "accounts/:accountId/close"
+      }
+    ],
+    "Transfers": [
+      {
+        "method": "GET",
+        "path": "transfers/me"
+      },
+      {
+        "method": "GET",
+        "path": "transfers/:reference"
+      },
+      {
+        "method": "POST",
+        "path": "transfers/internal"
+      },
+      {
+        "method": "POST",
+        "path": "transfers/external"
+      }
+    ],
+    "Cards": [
+      {
+        "method": "GET",
+        "path": "cards/:id"
+      },
+      {
+        "method": "POST",
+        "path": "cards/create-virtual"
+      },
+      {
+        "method": "POST",
+        "path": "cards/request-physical"
+      },
+      {
+        "method": "POST",
+        "path": "cards/freeze"
+      },
+      {
+        "method": "POST",
+        "path": "cards/unfreeze"
+      },
+      {
+        "method": "POST",
+        "path": "cards/fund"
+      },
+      {
+        "method": "POST",
+        "path": "cards/terminate"
+      }
+    ],
+    "Compliance": [
+      {
+        "method": "GET",
+        "path": "kyc/me"
+      },
+      {
+        "method": "POST",
+        "path": "kyc/verify-bvn"
+      },
+      {
+        "method": "POST",
+        "path": "kyc/verify-nin"
+      }
+    ],
+    "Funding": [
+      {
+        "method": "GET",
+        "path": "funding/virtual-accounts/me"
+      },
+      {
+        "method": "GET",
+        "path": "funding/deposits/me"
+      },
+      {
+        "method": "GET",
+        "path": "funding/deposits/:reference"
+      },
+      {
+        "method": "POST",
+        "path": "funding/virtual-accounts"
+      },
+      {
+        "method": "POST",
+        "path": "funding/checkout"
+      }
+    ],
+    "Ledger": [
+      {
+        "method": "GET",
+        "path": "ledger/accounts/:accountId/entries"
+      },
+      {
+        "method": "GET",
+        "path": "ledger/accounts/:accountId/statement"
+      },
+      {
+        "method": "GET",
+        "path": "ledger/entries/:entryId"
+      }
+    ],
+    "Bills": [
+      {
+        "method": "GET",
+        "path": "bills/billers"
+      },
+      {
+        "method": "GET",
+        "path": "bills/me"
+      },
+      {
+        "method": "GET",
+        "path": "bills/:reference"
+      },
+      {
+        "method": "POST",
+        "path": "bills/validate-customer"
+      },
+      {
+        "method": "POST",
+        "path": "bills/pay"
+      },
+      {
+        "method": "POST",
+        "path": "bills/:reference/refresh-status"
+      }
+    ],
+    "Loans": [
+      {
+        "method": "GET",
+        "path": "loans/:id"
+      },
+      {
+        "method": "POST",
+        "path": "loans/apply"
+      },
+      {
+        "method": "POST",
+        "path": "loans/approve"
+      },
+      {
+        "method": "POST",
+        "path": "loans/disburse"
+      },
+      {
+        "method": "POST",
+        "path": "loans/repay"
+      }
+    ],
+    "Rewards": [
+      {
+        "method": "GET",
+        "path": "rewards/history"
+      },
+      {
+        "method": "POST",
+        "path": "rewards/redeem"
+      },
+      {
+        "method": "POST",
+        "path": "rewards/referral"
+      }
+    ],
+    "Savings": [
+      {
+        "method": "GET",
+        "path": "savings/:id"
+      },
+      {
+        "method": "POST",
+        "path": "savings/create"
+      },
+      {
+        "method": "POST",
+        "path": "savings/deposit"
+      },
+      {
+        "method": "POST",
+        "path": "savings/withdraw"
+      },
+      {
+        "method": "POST",
+        "path": "savings/close"
+      }
+    ],
+    "Notifications": [
+      {
+        "method": "GET",
+        "path": "notifications/me"
+      },
+      {
+        "method": "GET",
+        "path": "notifications/me/unread-count"
+      },
+      {
+        "method": "POST",
+        "path": "notifications/:notificationId/read"
+      },
+      {
+        "method": "POST",
+        "path": "notifications/read-all"
+      }
+    ]
+  }
+}

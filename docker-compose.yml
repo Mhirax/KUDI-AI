@@ -1,0 +1,151 @@
+version: "3.9"
+
+# Local development stack — infrastructure dependencies + app services.
+# Production deployment uses Kubernetes manifests under /deployment/kubernetes.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kudi
+      POSTGRES_PASSWORD: kudi
+      POSTGRES_DB: kudi_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kudi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Separate instance/database — the ledger-engine owns this schema
+  # exclusively (see /rust/ledger-engine/README.md); it is never
+  # accessed via Prisma.
+  ledger-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kudi
+      POSTGRES_PASSWORD: kudi
+      POSTGRES_DB: kudi_ledger
+    ports:
+      - "5433:5432"
+    volumes:
+      - ledger-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kudi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mobile-api:
+    build:
+      context: .
+      dockerfile: deployment/docker/Dockerfile.mobile-api
+    env_file: .env
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  web-api:
+    build:
+      context: .
+      dockerfile: deployment/docker/Dockerfile.web-api
+    env_file: .env
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  admin-api:
+    build:
+      context: .
+      dockerfile: deployment/docker/Dockerfile.admin-api
+    env_file: .env
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # Rust ledger-engine gRPC server. Only actually used by the NestJS
+  # side when LEDGER_ENGINE_ENABLED=true (see .env.example) — otherwise
+  # Transfers falls back to its local Prisma-transaction executor and
+  # this service can be left stopped.
+  ledger-engine:
+    build:
+      context: .
+      dockerfile: deployment/docker/Dockerfile.ledger-engine
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://kudi:kudi@ledger-postgres:5432/kudi_ledger
+      LEDGER_ENGINE_PORT: "50051"
+      RUST_LOG: info
+    ports:
+      - "50051:50051"
+    depends_on:
+      ledger-postgres:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: deployment/docker/Dockerfile.api-gateway
+    env_file: .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mobile-api
+      - web-api
+      - admin-api
+
+volumes:
+  postgres-data:
+  ledger-postgres-data:
+  redis-data:
+  rabbitmq-data:

@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1.6
+# Multi-stage production Dockerfile — ledger-engine gRPC server
+FROM rust:1.75-slim AS builder
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends protobuf-compiler pkg-config libssl-dev \
+  && rm -rf /var/lib/apt/lists/*
+COPY Cargo.toml ./
+COPY rust ./rust
+COPY proto ./proto
+RUN cargo build --release -p ledger-engine --bin ledger-engine-server
+
+FROM debian:bookworm-slim AS runner
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+RUN useradd -r -u 1001 kudi
+COPY --from=builder /app/target/release/ledger-engine-server ./ledger-engine-server
+COPY --from=builder /app/rust/ledger-engine/migrations ./migrations
+USER kudi
+EXPOSE 50051
+CMD ["./ledger-engine-server"]

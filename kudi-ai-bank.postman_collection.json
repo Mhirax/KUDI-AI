@@ -1,0 +1,1119 @@
+{
+  "info": {
+    "_postman_id": "kudi-ai-bank-collection",
+    "name": "Kudi AI Bank - Complete API",
+    "description": "59 API endpoints for Kudi AI Bank banking platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Identity",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"phoneNumber\": \"+2348012345678\",\n  \"password\": \"SecurePass123!\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('access_token', jsonData.data.token);",
+                  "  pm.environment.set('refresh_token', jsonData.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "me"]
+            }
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/:userId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "user-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"SecurePass123!\",\n  \"newPassword\": \"NewSecurePass456!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "change-password"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "item": [
+        {
+          "name": "Create Account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('account_id', jsonData.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountType\": \"WALLET\",\n  \"currency\": \"NGN\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accounts"]
+            }
+          }
+        },
+        {
+          "name": "Get My Accounts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accounts", "me"]
+            }
+          }
+        },
+        {
+          "name": "Get Account By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts/{{account_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accounts", "{{account_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Credit Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50000,\n  \"reference\": \"credit-001\",\n  \"narration\": \"Test credit\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts/{{account_id}}/credit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accounts", "{{account_id}}", "credit"]
+            }
+          }
+        },
+        {
+          "name": "Debit Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10000,\n  \"reference\": \"debit-001\",\n  \"narration\": \"Test debit\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts/{{account_id}}/debit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accounts", "{{account_id}}", "debit"]
+            }
+          }
+        },
+        {
+          "name": "Freeze Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Test freeze\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts/{{account_id}}/freeze",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accounts", "{{account_id}}", "freeze"]
+            }
+          }
+        },
+        {
+          "name": "Unfreeze Account",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts/{{account_id}}/unfreeze",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "accounts", "{{account_id}}", "unfreeze"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transfers",
+      "item": [
+        {
+          "name": "Internal Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromAccountId\": \"account-1-id\",\n  \"toAccountId\": \"account-2-id\",\n  \"amount\": 25000,\n  \"narration\": \"Internal transfer\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/transfers/internal",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "transfers", "internal"]
+            }
+          }
+        },
+        {
+          "name": "External Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromAccountId\": \"{{account_id}}\",\n  \"recipientBankCode\": \"058\",\n  \"recipientAccountNumber\": \"1234567890\",\n  \"recipientName\": \"John Doe\",\n  \"amount\": 50000,\n  \"narration\": \"External transfer\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/transfers/external",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "transfers", "external"]
+            }
+          }
+        },
+        {
+          "name": "Get My Transfers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/transfers/me?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "transfers", "me"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Transfer By Reference",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/transfers/:reference",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "transfers", ":reference"],
+              "variable": [
+                {
+                  "key": "reference",
+                  "value": "transfer-reference-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cards",
+      "item": [
+        {
+          "name": "Create Virtual Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{account_id}}\",\n  \"amount\": 100000,\n  \"currency\": \"NGN\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/cards/create-virtual",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "cards", "create-virtual"]
+            }
+          }
+        },
+        {
+          "name": "Request Physical Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{account_id}}\",\n  \"deliveryAddress\": \"123 Main Street, Lagos, Nigeria\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/cards/request-physical",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "cards", "request-physical"]
+            }
+          }
+        },
+        {
+          "name": "List My Cards",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cards",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "cards"]
+            }
+          }
+        },
+        {
+          "name": "Get Card By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cards/:cardId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "cards", ":cardId"],
+              "variable": [
+                {
+                  "key": "cardId",
+                  "value": "card-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Freeze Card",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cards/:cardId/freeze",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "cards", ":cardId", "freeze"],
+              "variable": [
+                {
+                  "key": "cardId",
+                  "value": "card-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unfreeze Card",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cards/:cardId/unfreeze",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "cards", ":cardId", "unfreeze"],
+              "variable": [
+                {
+                  "key": "cardId",
+                  "value": "card-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Terminate Card",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cards/:cardId/terminate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "cards", ":cardId", "terminate"],
+              "variable": [
+                {
+                  "key": "cardId",
+                  "value": "card-id-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Compliance",
+      "item": [
+        {
+          "name": "Get My KYC Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/kyc/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "kyc", "me"]
+            }
+          }
+        },
+        {
+          "name": "Verify BVN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bvn\": \"12345678901\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/kyc/verify-bvn",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "kyc", "verify-bvn"]
+            }
+          }
+        },
+        {
+          "name": "Verify NIN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nin\": \"12345678901\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/kyc/verify-nin",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "kyc", "verify-nin"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Funding",
+      "item": [
+        {
+          "name": "Create Virtual Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{account_id}}\",\n  \"bankCode\": \"001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/funding/virtual-accounts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "funding", "virtual-accounts"]
+            }
+          }
+        },
+        {
+          "name": "Get My Virtual Accounts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/funding/virtual-accounts/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "funding", "virtual-accounts", "me"]
+            }
+          }
+        },
+        {
+          "name": "Initiate Checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{account_id}}\",\n  \"amount\": 100000,\n  \"currency\": \"NGN\",\n  \"paymentMethod\": \"card\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/funding/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "funding", "checkout"]
+            }
+          }
+        },
+        {
+          "name": "Get My Deposits",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/funding/deposits/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "funding", "deposits", "me"]
+            }
+          }
+        },
+        {
+          "name": "Get Deposit By Reference",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/funding/deposits/:reference",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "funding", "deposits", ":reference"],
+              "variable": [
+                {
+                  "key": "reference",
+                  "value": "deposit-reference-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bills",
+      "item": [
+        {
+          "name": "List Billers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bills/billers?category=ELECTRICITY",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bills", "billers"],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "ELECTRICITY"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Validate Bill Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billerCode\": \"billercode\",\n  \"itemCode\": \"itemcode\",\n  \"customerIdentifier\": \"customer123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bills/validate-customer",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bills", "validate-customer"]
+            }
+          }
+        },
+        {
+          "name": "Pay Bill",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{account_id}}\",\n  \"billerCode\": \"billercode\",\n  \"itemCode\": \"itemcode\",\n  \"customerIdentifier\": \"customer123\",\n  \"amount\": 5000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bills/pay",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bills", "pay"]
+            }
+          }
+        },
+        {
+          "name": "Get My Bill Payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bills/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bills", "me"]
+            }
+          }
+        },
+        {
+          "name": "Get Bill Payment By Reference",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bills/:reference",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bills", ":reference"],
+              "variable": [
+                {
+                  "key": "reference",
+                  "value": "bill-reference-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Refresh Bill Payment Status",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bills/:reference/refresh-status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bills", ":reference", "refresh-status"],
+              "variable": [
+                {
+                  "key": "reference",
+                  "value": "bill-reference-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Loans",
+      "item": [
+        {
+          "name": "Apply for Loan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{account_id}}\",\n  \"amount\": 500000,\n  \"tenor\": 12,\n  \"purpose\": \"Business expansion\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/loans/apply",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "loans", "apply"]
+            }
+          }
+        },
+        {
+          "name": "List Loans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/loans",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "loans"]
+            }
+          }
+        },
+        {
+          "name": "Get Loan By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/loans/:loanId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "loans", ":loanId"],
+              "variable": [
+                {
+                  "key": "loanId",
+                  "value": "loan-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve Loan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\",\n  \"approvalAmount\": 500000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/loans/:loanId/approve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "loans", ":loanId", "approve"],
+              "variable": [
+                {
+                  "key": "loanId",
+                  "value": "loan-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Disburse Loan",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/loans/:loanId/disburse",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "loans", ":loanId", "disburse"],
+              "variable": [
+                {
+                  "key": "loanId",
+                  "value": "loan-id-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rewards",
+      "item": [
+        {
+          "name": "Get Rewards",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/rewards",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "rewards"]
+            }
+          }
+        },
+        {
+          "name": "Get Rewards History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/rewards/history",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "rewards", "history"]
+            }
+          }
+        },
+        {
+          "name": "Redeem Rewards",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{account_id}}\",\n  \"points\": 1000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/rewards/redeem",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "rewards", "redeem"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Savings",
+      "item": [
+        {
+          "name": "Create Savings Goal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{account_id}}\",\n  \"targetAmount\": 1000000,\n  \"name\": \"New Car\",\n  \"tenor\": 12\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/savings/create",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "savings", "create"]
+            }
+          }
+        },
+        {
+          "name": "List Savings Goals",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/savings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "savings"]
+            }
+          }
+        },
+        {
+          "name": "Get Savings Goal By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/savings/:savingsId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "savings", ":savingsId"],
+              "variable": [
+                {
+                  "key": "savingsId",
+                  "value": "savings-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Deposit to Savings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50000,\n  \"reference\": \"savings-deposit-001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/savings/:savingsId/deposit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "savings", ":savingsId", "deposit"],
+              "variable": [
+                {
+                  "key": "savingsId",
+                  "value": "savings-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Withdraw from Savings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 25000,\n  \"reference\": \"savings-withdrawal-001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/savings/:savingsId/withdraw",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "savings", ":savingsId", "withdraw"],
+              "variable": [
+                {
+                  "key": "savingsId",
+                  "value": "savings-id-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Get My Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notifications/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "notifications", "me"]
+            }
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notifications/me/unread-count",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "notifications", "me", "unread-count"]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notifications/:notificationId/read",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "notifications", ":notificationId", "read"],
+              "variable": [
+                {
+                  "key": "notificationId",
+                  "value": "notification-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark All Notifications as Read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notifications/read-all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "notifications", "read-all"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "account_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
