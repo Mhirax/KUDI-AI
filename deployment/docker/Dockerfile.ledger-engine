@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.6
 # Multi-stage production Dockerfile — ledger-engine gRPC server
-FROM rust:1.75-slim AS builder
+FROM rust:1.97-slim AS builder
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends protobuf-compiler pkg-config libssl-dev \
   && rm -rf /var/lib/apt/lists/*
