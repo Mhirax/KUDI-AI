@@ -1,0 +1,36 @@
+.verify-otp {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-8;
+
+  &__resend {
+    text-align: center;
+  }
+
+  &__countdown {
+    font-size: $text-sm;
+    color: $gray-400;
+
+    strong { color: $white; }
+  }
+
+  &__resend-btn {
+    font-size: $text-sm;
+    font-weight: $weight-semibold;
+    color: $kudi-teal;
+    padding: $space-2 $space-4;
+    border-radius: $radius-full;
+    background: rgba(0, 212, 200, 0.08);
+    transition: background $transition-fast;
+
+    &:hover { background: rgba(0, 212, 200, 0.14); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+  }
+
+  &__footer {
+    width: 100%;
+    margin-top: auto;
+  }
+}

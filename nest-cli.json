@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "apps/mobile-api/src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "webpack": false,
+    "tsConfigPath": "tsconfig.json"
+  },
+  "monorepo": true,
+  "root": "apps/mobile-api",
+  "projects": {
+    "mobile-api": {
+      "type": "application",
+      "root": "apps/mobile-api",
+      "entryFile": "main",
+      "sourceRoot": "apps/mobile-api/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/mobile-api/tsconfig.app.json"
+      }
+    },
+    "web-api": {
+      "type": "application",
+      "root": "apps/web-api",
+      "entryFile": "main",
+      "sourceRoot": "apps/web-api/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/web-api/tsconfig.app.json"
+      }
+    },
+    "admin-api": {
+      "type": "application",
+      "root": "apps/admin-api",
+      "entryFile": "main",
+      "sourceRoot": "apps/admin-api/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/admin-api/tsconfig.app.json"
+      }
+    },
+    "api-gateway": {
+      "type": "application",
+      "root": "gateway/api-gateway",
+      "entryFile": "main",
+      "sourceRoot": "gateway/api-gateway/src",
+      "compilerOptions": {
+        "tsConfigPath": "gateway/api-gateway/tsconfig.app.json"
+      }
+    }
+  }
+}

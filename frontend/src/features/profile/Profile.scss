@@ -1,0 +1,24 @@
+.profile-screen {
+  min-height: 100vh; background: $kudi-dark;
+  &__header { display: flex; align-items: center; justify-content: space-between; padding: $space-5; h2 { font-size: $text-lg; font-weight: $weight-bold; color: $white; } }
+  &__notif-btn { position: relative; width: 40px; height: 40px; border-radius: $radius-md; background: $kudi-dark-card; border: 1px solid $kudi-dark-border; color: $gray-400; display: flex; align-items: center; justify-content: center; }
+  &__notif-badge { position: absolute; top: 6px; right: 6px; width: 16px; height: 16px; border-radius: $radius-full; background: $error; color: $white; font-size: 10px; font-weight: $weight-bold; display: flex; align-items: center; justify-content: center; }
+  &__skeleton { height: 300px; margin: $space-5; border-radius: $radius-xl; background: $kudi-dark-card; animation: skeleton-pulse 1.4s ease infinite; }
+  &__body { padding: 0 $space-5 $space-8; display: flex; flex-direction: column; gap: $space-4; }
+  &__avatar-section { display: flex; flex-direction: column; align-items: center; gap: $space-2; padding: $space-4 0; h3 { font-size: $text-lg; font-weight: $weight-bold; color: $white; } p { font-size: $text-sm; color: $gray-400; } }
+  &__avatar { width: 72px; height: 72px; border-radius: $radius-full; background: $gradient-brand; color: $white; font-size: $text-xl; font-weight: $weight-bold; display: flex; align-items: center; justify-content: center; }
+  &__kyc-badge { font-size: $text-xs; font-weight: $weight-bold; padding: $space-1 $space-3; border-radius: $radius-full; }
+  &__account-card { background: $kudi-dark-card; border: 1px solid $kudi-dark-border; border-radius: $radius-lg; padding: $space-4; text-align: center; }
+  &__account-label { font-size: $text-xs; color: $gray-400; margin-bottom: $space-2; }
+  &__account-number { font-size: $text-xl; font-weight: $weight-bold; color: $white; letter-spacing: 2px; }
+  &__account-bank { font-size: $text-xs; color: $gray-400; margin-top: $space-1; }
+  &__menu { background: $kudi-dark-card; border: 1px solid $kudi-dark-border; border-radius: $radius-lg; overflow: hidden; }
+  &__menu-item { width: 100%; display: flex; align-items: center; gap: $space-3; padding: $space-4; border-bottom: 1px solid $kudi-dark-border; font-size: $text-sm; color: $white; text-align: left; transition: background $transition-fast; &:last-child { border-bottom: none; } &:hover { background: rgba(255,255,255,0.03); } svg { margin-left: auto; color: $gray-600; } }
+  &__logout { width: 100%; padding: $space-4; border-radius: $radius-lg; background: $error-bg; border: 1px solid rgba(255,77,106,0.3); color: $error; font-size: $text-base; font-weight: $weight-semibold; }
+  &__modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end; z-index: 200; }
+  &__modal { width: 100%; background: $kudi-dark-card; border-radius: $radius-2xl $radius-2xl 0 0; padding: $space-6; max-height: 70vh; overflow-y: auto; }
+  &__modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: $space-4; h3 { font-size: $text-lg; font-weight: $weight-bold; color: $white; } button { font-size: $text-sm; color: $kudi-teal; } }
+  &__notif-item { display: flex; align-items: flex-start; gap: $space-3; padding: $space-3 0; border-bottom: 1px solid $kudi-dark-border; p { font-size: $text-sm; font-weight: $weight-semibold; color: $white; } span { font-size: $text-xs; color: $gray-400; display: block; margin-top: 2px; } small { font-size: $text-xs; color: $gray-600; margin-top: $space-1; display: block; } }
+  &__notif-dot { width: 8px; height: 8px; border-radius: $radius-full; background: $kudi-dark-border; flex-shrink: 0; margin-top: 5px; .unread & { background: $kudi-teal; } }
+}
+@keyframes skeleton-pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }

@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kudi
+      POSTGRES_PASSWORD: kudi
+      POSTGRES_DB: kudi_test
+    ports: ["5433:5432"]
+  redis-test:
+    image: redis:7-alpine
+    ports: ["6380:6379"]
+  rabbitmq-test:
+    image: rabbitmq:3-management-alpine
+    ports: ["5673:5672", "15673:15672"]

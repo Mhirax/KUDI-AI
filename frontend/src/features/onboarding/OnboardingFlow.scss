@@ -1,0 +1,139 @@
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  background: $kudi-dark;
+  padding: $space-6 $space-5;
+  position: relative;
+  overflow: hidden;
+
+  // Dynamic background tint per slide
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--slide-bg);
+    transition: background $transition-slow;
+    pointer-events: none;
+  }
+
+  // ── Skip ─────────────────────────────────────────────────────────────────
+  &__skip {
+    align-self: flex-end;
+    margin-top: $space-4;
+    color: $gray-400;
+    font-size: $text-sm;
+    font-weight: $weight-medium;
+    padding: $space-2 $space-3;
+    border-radius: $radius-full;
+    transition: color $transition-fast;
+    position: relative;
+    z-index: 1;
+
+    &:hover { color: $white; }
+  }
+
+  // ── Slide ─────────────────────────────────────────────────────────────────
+  &__slide {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: $space-8;
+    width: 100%;
+    animation: slide-in 0.35s ease;
+    position: relative;
+    z-index: 1;
+  }
+
+  // ── Illustration ──────────────────────────────────────────────────────────
+  &__illustration {
+    width: 180px;
+    height: 180px;
+    border-radius: $radius-full;
+    background: $kudi-dark-card;
+    border: 1px solid $kudi-dark-border;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__emoji {
+    font-size: 72px;
+    line-height: 1;
+  }
+
+  // ── Text ──────────────────────────────────────────────────────────────────
+  &__text {
+    text-align: center;
+    padding: 0 $space-4;
+  }
+
+  &__title {
+    font-size: $text-2xl;
+    font-weight: $weight-bold;
+    color: $white;
+    margin-bottom: $space-3;
+    line-height: 1.25;
+  }
+
+  &__body {
+    font-size: $text-base;
+    color: $gray-400;
+    line-height: 1.65;
+  }
+
+  // ── Dots ──────────────────────────────────────────────────────────────────
+  &__dots {
+    display: flex;
+    gap: $space-2;
+    margin-bottom: $space-6;
+    position: relative;
+    z-index: 1;
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: $radius-full;
+    background: $kudi-dark-border;
+    transition: all $transition-base;
+
+    &.active {
+      width: 24px;
+      background: $gradient-brand;
+    }
+  }
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  &__footer {
+    width: 100%;
+    padding-bottom: $space-8;
+    position: relative;
+    z-index: 1;
+  }
+
+  &__btn {
+    width: 100%;
+    padding: $space-4;
+    border-radius: $radius-lg;
+    background: $gradient-brand;
+    color: $white;
+    font-size: $text-base;
+    font-weight: $weight-semibold;
+    letter-spacing: 0.3px;
+    transition: opacity $transition-fast, transform $transition-fast;
+
+    &:active {
+      opacity: 0.9;
+      transform: scale(0.98);
+    }
+  }
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}

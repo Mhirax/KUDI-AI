@@ -1,0 +1,102 @@
+.confirm-step {
+  flex: 1;
+  padding: 0 $space-5 $space-8;
+  display: flex;
+  flex-direction: column;
+  gap: $space-5;
+
+  &__card {
+    background: $kudi-dark-card;
+    border: 1px solid $kudi-dark-border;
+    border-radius: $radius-xl;
+    padding: $space-5;
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+  }
+
+  &__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-4;
+
+    > span:first-child {
+      font-size: $text-sm;
+      color: $gray-400;
+      flex-shrink: 0;
+    }
+
+    strong {
+      font-size: $text-sm;
+      font-weight: $weight-semibold;
+      color: $white;
+    }
+
+    &.total {
+      span { color: $white; font-weight: $weight-semibold; }
+      strong { color: $kudi-teal; font-size: $text-base; }
+    }
+  }
+
+  &__recipient {
+    text-align: right;
+    p    { font-size: $text-sm; font-weight: $weight-semibold; color: $white; }
+    span { font-size: $text-xs; color: $gray-400; }
+  }
+
+  &__note {
+    font-size: $text-sm;
+    color: $white;
+    text-align: right;
+    max-width: 180px;
+  }
+
+  &__fee-note {
+    font-size: $text-xs;
+    color: $gray-600;
+    font-style: italic;
+  }
+
+  &__divider {
+    height: 1px;
+    background: $kudi-dark-border;
+  }
+
+  &__disclaimer {
+    font-size: $text-xs;
+    color: $gray-600;
+    text-align: center;
+    line-height: 1.6;
+    padding: 0 $space-4;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $space-3;
+    margin-top: auto;
+  }
+
+  &__edit {
+    flex: 1;
+    padding: $space-4;
+    border-radius: $radius-lg;
+    background: $kudi-dark-card;
+    border: 1.5px solid $kudi-dark-border;
+    color: $white;
+    font-size: $text-base;
+    font-weight: $weight-semibold;
+    &:hover { background: $kudi-dark-border; }
+  }
+
+  &__confirm {
+    flex: 2;
+    padding: $space-4;
+    border-radius: $radius-lg;
+    background: $gradient-brand;
+    color: $white;
+    font-size: $text-base;
+    font-weight: $weight-semibold;
+    &:active { opacity: 0.9; transform: scale(0.98); }
+  }
+}

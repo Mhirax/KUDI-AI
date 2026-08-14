@@ -1,0 +1,53 @@
+.auth-btn {
+  width: 100%;
+  padding: $space-4;
+  border-radius: $radius-lg;
+  font-size: $text-base;
+  font-weight: $weight-semibold;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  transition: all $transition-fast;
+
+  &--primary {
+    background: $gradient-brand;
+    color: $white;
+
+    &:active:not(:disabled) {
+      opacity: 0.9;
+      transform: scale(0.98);
+    }
+  }
+
+  &--secondary {
+    background: $kudi-dark-card;
+    color: $white;
+    border: 1.5px solid $kudi-dark-border;
+
+    &:active:not(:disabled) {
+      background: $kudi-dark-border;
+    }
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  // Spinner for loading state
+  &__spinner {
+    width: 20px;
+    height: 20px;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: $radius-full;
+    animation: btn-spin 0.7s linear infinite;
+  }
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}

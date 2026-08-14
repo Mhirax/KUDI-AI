@@ -1,0 +1,212 @@
+// Kudi AI Bank — Prisma Schema (Phase 1 Foundation)
+// Domain models are intentionally omitted; this establishes datasource,
+// generator, and connection configuration only.
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================================================
+// Identity & Auth bounded context (modules/identity)
+// Domain entities (Account, Transaction, Ledger, etc.) for other
+// bounded contexts are added module-by-module in subsequent phases,
+// each respecting its own bounded-context ownership boundary.
+// ==========================================================================
+
+enum UserRole {
+  CUSTOMER
+  SUPPORT_AGENT
+  COMPLIANCE_OFFICER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  LOCKED
+  DEACTIVATED
+}
+
+model User {
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  phoneNumber         String    @unique
+  passwordHash        String
+  firstName           String
+  lastName            String
+  role                UserRole  @default(CUSTOMER)
+  status              UserStatus @default(PENDING_VERIFICATION)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  refreshTokens RefreshToken[]
+
+  @@index([status])
+  @@map("users")
+}
+
+model RefreshToken {
+  id                String    @id @default(uuid())
+  userId            String
+  tokenHash         String    @unique
+  family            String
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([family])
+  @@map("refresh_tokens")
+}
+
+// ==========================================================================
+// Accounts & Wallets bounded context (modules/accounts)
+// Note: `userId` on Account is a plain scalar reference to Identity's
+// User.id — deliberately *not* a Prisma relation, preserving
+// bounded-context isolation at the database level (see
+// modules/accounts/README.md).
+// ==========================================================================
+
+enum AccountType {
+  WALLET
+  SAVINGS
+  CURRENT
+}
+
+// Mirrors shared/enums/account-status.enum.ts
+enum AccountStatus {
+  ACTIVE
+  DORMANT
+  FROZEN
+  CLOSED
+  PENDING_VERIFICATION
+}
+
+model Account {
+  id            String        @id @default(uuid())
+  userId        String
+  accountNumber String        @unique
+  accountType   AccountType
+  currency      String
+  /// Minor units (kobo/cents), stored as a native BigInt — never a float.
+  balance       BigInt        @default(0)
+  status        AccountStatus @default(PENDING_VERIFICATION)
+  /// Optimistic concurrency token; incremented on every mutation.
+  version       Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("accounts")
+}
+
+// ==========================================================================
+// Transfers bounded context (modules/transfers)
+// `sourceAccountId`/`destinationAccountId` are plain scalar references
+// to Accounts' Account.id — deliberately not Prisma relations, for the
+// same bounded-context-isolation reason as Account.userId above.
+// ==========================================================================
+
+enum TransferType {
+  INTERNAL
+  EXTERNAL
+}
+
+// Mirrors shared/enums/transaction-status.enum.ts
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  SUCCESSFUL
+  FAILED
+  REVERSED
+  CANCELLED
+}
+
+model Transfer {
+  id                     String            @id @default(uuid())
+  /// Also serves as the platform's idempotency key for transfer initiation.
+  reference              String            @unique
+  type                   TransferType
+  initiatorUserId        String
+  sourceAccountId        String
+  /// Populated for INTERNAL transfers only.
+  destinationAccountId   String?
+  /// Populated for EXTERNAL transfers only.
+  recipientBankCode      String?
+  recipientAccountNumber String?
+  recipientAccountName   String?
+  /// Minor units (kobo/cents) — never a float.
+  amountMinorUnits       BigInt
+  feeMinorUnits          BigInt
+  currency               String
+  narration              String
+  status                 TransactionStatus @default(PENDING)
+  failureReason          String?
+  /// Flutterwave's own transfer ID, for EXTERNAL transfers.
+  providerReference      String?
+  /// Optimistic concurrency token.
+  version                Int               @default(0)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  @@index([initiatorUserId])
+  @@index([sourceAccountId])
+  @@index([providerReference])
+  @@index([status])
+  @@map("transfers")
+}
+
+// ==========================================================================
+// Compliance/KYC bounded context (modules/compliance)
+// `userId` is a plain scalar reference to Identity's User.id — same
+// bounded-context-isolation reasoning as Account.userId above.
+//
+// SECURITY: raw BVN/NIN values are never persisted, only a SHA-256
+// hash (dedup) and a masked display form. See
+// modules/compliance/domain/entities/kyc-profile.entity.ts.
+// ==========================================================================
+
+// Mirrors shared vocabulary in modules/compliance/domain/enums/kyc-tier.enum.ts
+enum KycTier {
+  TIER_1
+  TIER_2
+  TIER_3
+}
+
+model KycProfile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  tier          KycTier   @default(TIER_1)
+  bvnVerifiedAt DateTime?
+  /// SHA-256 hash only — never the raw BVN.
+  bvnHash       String?
+  /// Last-4-digit masked form, e.g. "*******1234" — safe for display.
+  bvnMasked     String?
+  ninVerifiedAt DateTime?
+  /// SHA-256 hash only — never the raw NIN.
+  ninHash       String?
+  ninMasked     String?
+  /// Optimistic concurrency token.
+  version       Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tier])
+  @@map("kyc_profiles")
+}

@@ -1,0 +1,49 @@
+.transfer {
+  min-height: 100vh;
+  background: $kudi-dark;
+  display: flex;
+  flex-direction: column;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-5 $space-5 $space-4;
+  }
+
+  &__back {
+    width: 40px;
+    height: 40px;
+    border-radius: $radius-md;
+    background: $kudi-dark-card;
+    border: 1px solid $kudi-dark-border;
+    color: $white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background $transition-fast;
+    &:hover { background: $kudi-dark-border; }
+  }
+
+  &__title {
+    font-size: $text-lg;
+    font-weight: $weight-bold;
+    color: $white;
+  }
+
+  &__progress {
+    display: flex;
+    gap: $space-2;
+    padding: 0 $space-5 $space-5;
+  }
+
+  &__progress-step {
+    flex: 1;
+    height: 3px;
+    border-radius: $radius-full;
+    background: $kudi-dark-border;
+    transition: background $transition-base;
+
+    &.active { background: $gradient-brand; }
+  }
+}

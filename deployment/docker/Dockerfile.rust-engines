@@ -1,0 +1,16 @@
+# syntax=docker/dockerfile:1.6
+# Multi-stage production Dockerfile — Rust core banking engines
+FROM rust:1.78-slim AS builder
+WORKDIR /app
+COPY Cargo.toml ./
+COPY rust ./rust
+RUN cargo build --release --workspace
+
+FROM debian:bookworm-slim AS runner
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+RUN useradd -r -u 1001 kudi
+COPY --from=builder /app/target/release ./bin
+USER kudi
+CMD ["./bin/financial-engine"]

@@ -1,0 +1,7 @@
+export enum AccountStatus {
+  ACTIVE = 'ACTIVE',
+  DORMANT = 'DORMANT',
+  FROZEN = 'FROZEN',
+  CLOSED = 'CLOSED',
+  PENDING_VERIFICATION = 'PENDING_VERIFICATION',
+}

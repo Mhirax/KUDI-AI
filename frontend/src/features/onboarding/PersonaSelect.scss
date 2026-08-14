@@ -1,0 +1,93 @@
+.persona-select {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: $kudi-dark;
+  padding: $space-10 $space-5 $space-8;
+
+  &__header {
+    margin-bottom: $space-6;
+  }
+
+  &__title {
+    font-size: $text-2xl;
+    font-weight: $weight-bold;
+    color: $white;
+    margin-bottom: $space-2;
+  }
+
+  &__sub {
+    font-size: $text-sm;
+    color: $gray-400;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: $space-3;
+    flex: 1;
+    align-content: start;
+    margin-bottom: $space-5;
+  }
+
+  &__card {
+    background: $kudi-dark-card;
+    border: 1.5px solid $kudi-dark-border;
+    border-radius: $radius-lg;
+    padding: $space-5 $space-4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $space-2;
+    transition: all $transition-fast;
+
+    &:active { transform: scale(0.96); }
+
+    &.active {
+      border-color: $kudi-teal;
+      background: rgba(0, 212, 200, 0.08);
+
+      .persona-select__label {
+        color: $kudi-teal;
+      }
+    }
+  }
+
+  &__emoji {
+    font-size: 32px;
+    line-height: 1;
+  }
+
+  &__label {
+    font-size: $text-sm;
+    font-weight: $weight-semibold;
+    color: $white;
+    transition: color $transition-fast;
+  }
+
+  &__mic-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: $space-2;
+    font-size: $text-xs;
+    color: $gray-400;
+    margin-bottom: $space-5;
+  }
+
+  &__btn {
+    width: 100%;
+    padding: $space-4;
+    border-radius: $radius-lg;
+    background: $gradient-brand;
+    color: $white;
+    font-size: $text-base;
+    font-weight: $weight-semibold;
+    transition: opacity $transition-fast, transform $transition-fast;
+
+    &:active {
+      opacity: 0.9;
+      transform: scale(0.98);
+    }
+  }
+}

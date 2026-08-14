@@ -1,0 +1,23 @@
+.savings-screen {
+  min-height: 100vh; background: $kudi-dark;
+  &__header { display: flex; align-items: center; justify-content: space-between; padding: $space-5; h2 { font-size: $text-lg; font-weight: $weight-bold; color: $white; } }
+  &__back { width: 40px; height: 40px; border-radius: $radius-md; background: $kudi-dark-card; border: 1px solid $kudi-dark-border; color: $white; display: flex; align-items: center; justify-content: center; }
+  &__add { width: 40px; height: 40px; border-radius: $radius-md; background: $gradient-brand; color: $white; font-size: $text-xl; display: flex; align-items: center; justify-content: center; }
+  &__body { padding: 0 $space-5 $space-8; display: flex; flex-direction: column; gap: $space-4; }
+  &__skeleton { height: 120px; border-radius: $radius-lg; background: $kudi-dark-card; animation: skeleton-pulse 1.4s ease infinite; }
+  &__goal { background: $kudi-dark-card; border: 1px solid $kudi-dark-border; border-radius: $radius-lg; padding: $space-4; display: flex; flex-direction: column; gap: $space-3; }
+  &__goal-top { display: flex; align-items: center; gap: $space-3; }
+  &__goal-icon { width: 40px; height: 40px; border-radius: $radius-md; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  &__goal-info { flex: 1; p { font-size: $text-sm; font-weight: $weight-semibold; color: $white; } span { font-size: $text-xs; color: $gray-400; } }
+  &__goal-pct { font-size: $text-sm; font-weight: $weight-bold; color: $kudi-teal; }
+  &__goal-amounts { font-size: $text-sm; color: $white; font-weight: $weight-medium; }
+  &__goal-target { color: $gray-600; }
+  &__bar-track { height: 6px; background: $kudi-dark-border; border-radius: $radius-full; overflow: hidden; }
+  &__bar-fill { height: 100%; border-radius: $radius-full; transition: width 0.4s ease; }
+  &__topup { align-self: flex-start; font-size: $text-xs; font-weight: $weight-semibold; color: $kudi-teal; background: rgba(0,212,200,0.1); padding: $space-2 $space-3; border-radius: $radius-full; }
+  &__modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end; z-index: 200; }
+  &__modal { width: 100%; background: $kudi-dark-card; border-radius: $radius-2xl $radius-2xl 0 0; padding: $space-6; display: flex; flex-direction: column; gap: $space-4; h3 { font-size: $text-lg; font-weight: $weight-bold; color: $white; } }
+  &__input { background: $kudi-dark; border: 1.5px solid $kudi-dark-border; border-radius: $radius-lg; padding: $space-4; color: $white; font-size: $text-base; font-family: inherit; width: 100%; &::placeholder { color: $gray-600; } &:focus { border-color: $kudi-teal; } }
+  &__modal-actions { display: flex; gap: $space-3; button { flex: 1; padding: $space-4; border-radius: $radius-lg; font-size: $text-base; font-weight: $weight-semibold; background: $kudi-dark; border: 1px solid $kudi-dark-border; color: $gray-400; &.primary { background: $gradient-brand; color: $white; border: none; } } }
+}
+@keyframes skeleton-pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }

@@ -1,0 +1,35 @@
+.dashboard {
+  min-height: 100vh;
+  background: white;
+  padding-bottom: $space-4;
+
+  &__error {
+    margin: $space-5;
+    background: $error-bg;
+    border: 1px solid rgba(255, 77, 106, 0.3);
+    border-radius: $radius-lg;
+    padding: $space-4;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+
+    p {
+      font-size: $text-sm;
+      color: $error;
+    }
+
+    button {
+      font-size: $text-sm;
+      font-weight: $weight-semibold;
+      color: $error;
+      border: 1px solid currentColor;
+      border-radius: $radius-full;
+      padding: $space-2 $space-5;
+      align-self: center;
+      transition: all $transition-fast;
+
+      &:hover { background: $error; color: $white; }
+    }
+  }
+}

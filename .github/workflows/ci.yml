@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+
+  typecheck:
+    name: TypeScript Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate --schema=infrastructure/prisma/schema.prisma
+      - run: npm run typecheck
+
+  test-node:
+    name: Node Unit & Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: kudi
+          POSTGRES_PASSWORD: kudi
+          POSTGRES_DB: kudi_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kudi"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports: ["5672:5672"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate --schema=infrastructure/prisma/schema.prisma
+      - run: npm run test:unit
+      - run: npm run test:integration
+        env:
+          DATABASE_URL: postgresql://kudi:kudi@localhost:5432/kudi_test
+          REDIS_HOST: localhost
+          RABBITMQ_URL: amqp://localhost:5672
+
+  test-rust:
+    name: Rust Engine Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  build-images:
+    name: Build Docker Images
+    needs: [lint, typecheck, test-node, test-rust]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [mobile-api, web-api, admin-api, api-gateway]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.service }} image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deployment/docker/Dockerfile.${{ matrix.service }}
+          push: false
+          tags: kudi-ai-bank/${{ matrix.service }}:ci

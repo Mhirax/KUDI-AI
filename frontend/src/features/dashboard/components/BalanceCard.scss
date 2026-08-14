@@ -1,0 +1,127 @@
+.balance-card {
+  margin: 0 $space-5;
+  border-radius: $radius-2xl;
+  background: rgb(64, 64, 194);
+  padding: $space-5;
+  position: relative;
+  overflow: hidden;
+  box-shadow: $shadow-md;
+
+  &__inner {
+    position: relative;
+    z-index: 1;
+  }
+
+  // ── Top row ──────────────────────────────────────────────────────────────
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $space-3;
+  }
+
+  &__label {
+    font-size: $text-sm;
+    color: rgba(255,255,255,0.75);
+    font-weight: $weight-medium;
+  }
+
+  &__toggle {
+    color: rgba(255,255,255,0.75);
+    width: 32px;
+    height: 32px;
+    border-radius: $radius-full;
+    background: rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background $transition-fast;
+
+    &:hover { background: rgba(255,255,255,0.2); }
+  }
+
+  // ── Amount ────────────────────────────────────────────────────────────────
+  &__amount {
+    font-size: $text-3xl;
+    font-weight: $weight-bold;
+    color: $white;
+    letter-spacing: -0.5px;
+    margin-bottom: $space-4;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+  }
+
+  &__hidden {
+    letter-spacing: 3px;
+    opacity: 0.8;
+  }
+
+  &__skeleton {
+    width: 200px;
+    height: 36px;
+    border-radius: $radius-sm;
+    background: rgba(255,255,255,0.15);
+    animation: skeleton-pulse 1.4s ease infinite;
+  }
+
+  // ── Bottom row ────────────────────────────────────────────────────────────
+  &__bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__available-label {
+    font-size: $text-xs;
+    color: rgba(255,255,255,0.65);
+  }
+
+  &__incoming {
+    display: flex;
+    align-items: center;
+    gap: $space-1;
+    font-size: $text-xs;
+    color: rgba(255,255,255,0.9);
+    font-weight: $weight-semibold;
+    background: rgba(255,255,255,0.12);
+    padding: 3px $space-2;
+    border-radius: $radius-full;
+  }
+
+  &__incoming-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: $radius-full;
+    background: $success;
+    flex-shrink: 0;
+  }
+
+  // ── Decorative orbs ───────────────────────────────────────────────────────
+  &__orb {
+    position: absolute;
+    border-radius: $radius-full;
+    pointer-events: none;
+
+    &--1 {
+      width: 160px;
+      height: 160px;
+      background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+      top: -60px;
+      right: -40px;
+    }
+
+    &--2 {
+      width: 120px;
+      height: 120px;
+      background: radial-gradient(circle, rgba(0,212,200,0.12) 0%, transparent 70%);
+      bottom: -40px;
+      left: -20px;
+    }
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}

@@ -1,0 +1,129 @@
+.amount-step {
+  flex: 1;
+  padding: 0 $space-5 $space-8;
+  display: flex;
+  flex-direction: column;
+  gap: $space-6;
+
+  &__recipient {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-4;
+    background: $kudi-dark-card;
+    border: 1px solid $kudi-dark-border;
+    border-radius: $radius-lg;
+  }
+
+  &__recipient-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: $radius-full;
+    background: rgba(74,108,247,0.15);
+    color: $kudi-blue;
+    font-size: $text-sm;
+    font-weight: $weight-bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__recipient-info {
+    p    { font-size: $text-sm; font-weight: $weight-semibold; color: $white; }
+    span { font-size: $text-xs; color: $gray-400; }
+  }
+
+  &__input-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: $space-2;
+    padding: $space-6 0;
+  }
+
+  &__currency {
+    font-size: $text-3xl;
+    font-weight: $weight-bold;
+    color: $gray-400;
+    padding-top: 6px;
+  }
+
+  &__input {
+    background: transparent;
+    border: none;
+    font-size: $text-4xl;
+    font-weight: $weight-bold;
+    color: $white;
+    width: 200px;
+    text-align: center;
+    caret-color: $kudi-teal;
+
+    &::placeholder { color: $kudi-dark-border; }
+  }
+
+  &__error {
+    text-align: center;
+    font-size: $text-sm;
+    color: $error;
+    margin-top: -$space-4;
+  }
+
+  &__quick {
+    display: flex;
+    gap: $space-2;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  &__quick-btn {
+    padding: $space-2 $space-4;
+    border-radius: $radius-full;
+    background: $kudi-dark-card;
+    border: 1px solid $kudi-dark-border;
+    color: $gray-400;
+    font-size: $text-sm;
+    font-weight: $weight-medium;
+    transition: all $transition-fast;
+
+    &:hover { border-color: $kudi-teal; color: $kudi-teal; }
+    &:active { transform: scale(0.95); }
+  }
+
+  &__note-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+
+    label { font-size: $text-sm; color: $gray-400; }
+  }
+
+  &__note {
+    background: $kudi-dark-card;
+    border: 1.5px solid $kudi-dark-border;
+    border-radius: $radius-lg;
+    padding: $space-4;
+    color: $white;
+    font-size: $text-base;
+    font-family: inherit;
+    width: 100%;
+
+    &::placeholder { color: $gray-600; }
+    &:focus { border-color: $kudi-teal; }
+  }
+
+  &__footer { margin-top: auto; }
+
+  &__btn {
+    width: 100%;
+    padding: $space-4;
+    border-radius: $radius-lg;
+    background: $gradient-brand;
+    color: $white;
+    font-size: $text-base;
+    font-weight: $weight-semibold;
+
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+    &:not(:disabled):active { opacity: 0.9; transform: scale(0.98); }
+  }
+}

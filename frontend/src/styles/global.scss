@@ -1,0 +1,105 @@
+@use "variables" as *;
+
+// ─── GLOBAL RESET ────────────────────────────────────────────────────────────
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: $font-primary;
+  font-size: $text-base;
+  font-weight: $weight-regular;
+  color: $white;
+  background-color: $kudi-dark;
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// ─── APP SHELL ───────────────────────────────────────────────────────────────
+// Constrains to mobile width and centres on desktop
+#root {
+  width: 100%;
+  max-width: $mobile-max;
+  min-height: 100vh;
+  margin: 0 auto;
+  position: relative;
+  background: $kudi-dark;
+  overflow: hidden;
+}
+
+// ─── TYPOGRAPHY ──────────────────────────────────────────────────────────────
+h1, h2, h3, h4, h5, h6 {
+  font-weight: $weight-bold;
+  line-height: 1.2;
+  color: $white;
+}
+
+p { line-height: 1.6; }
+
+a {
+  color: $kudi-teal;
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: none;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+input, textarea, select {
+  font-family: inherit;
+  outline: none;
+}
+
+img, svg {
+  display: block;
+  max-width: 100%;
+}
+
+ul, ol { list-style: none; }
+
+// ─── SCROLLBAR ───────────────────────────────────────────────────────────────
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: $kudi-dark; }
+::-webkit-scrollbar-thumb { background: $kudi-dark-border; border-radius: $radius-full; }
+
+// ─── UTILITY CLASSES ─────────────────────────────────────────────────────────
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.gradient-text {
+  background: $gradient-brand;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

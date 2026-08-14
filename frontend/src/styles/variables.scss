@@ -1,0 +1,90 @@
+// ─── KUDI AI DESIGN TOKENS ───────────────────────────────────────────────────
+// Every colour, spacing, radius, and font used across the entire app.
+// Change something here and it updates everywhere.
+// Never hardcode colours in component SCSS files.
+
+// ── Brand colours ─────────────────────────────────────────────────────────────
+$kudi-teal:        #00D4C8;
+$kudi-purple:      #7B2FBE;
+$kudi-blue:        #4A6CF7;
+$kudi-dark:        #0A0A0F;
+$kudi-dark-card:   #12121A;
+$kudi-dark-border: #1E1E2E;
+
+// Gradient — used on balance card, buttons, logo
+$gradient-brand:   linear-gradient(135deg, #00D4C8 0%, #4A6CF7 50%, #7B2FBE 100%);
+$gradient-card:    linear-gradient(135deg, #4A6CF7 0%, #7B2FBE 100%);
+$gradient-subtle:  linear-gradient(135deg, #12121A 0%, #1E1E2E 100%);
+
+// ── Neutral colours ───────────────────────────────────────────────────────────
+$white:            #FFFFFF;
+$gray-100:         #F5F5F7;
+$gray-200:         #E8E8EE;
+$gray-400:         #9898B0;
+$gray-600:         #5A5A72;
+$gray-800:         #2A2A3E;
+
+// ── Semantic colours ──────────────────────────────────────────────────────────
+$success:          #00C48C;
+$success-bg:       rgba(0, 196, 140, 0.12);
+$error:            #FF4D6A;
+$error-bg:         rgba(255, 77, 106, 0.12);
+$warning:          #FFB800;
+$warning-bg:       rgba(255, 184, 0, 0.12);
+$incoming:         #00C48C;
+$outgoing:         #FF4D6A;
+
+// ── Typography ────────────────────────────────────────────────────────────────
+$font-primary:     'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+$font-mono:        'JetBrains Mono', 'Courier New', monospace;
+
+$text-xs:    11px;
+$text-sm:    13px;
+$text-base:  15px;
+$text-md:    17px;
+$text-lg:    20px;
+$text-xl:    24px;
+$text-2xl:   28px;
+$text-3xl:   34px;
+$text-4xl:   40px;
+
+$weight-regular:  400;
+$weight-medium:   500;
+$weight-semibold: 600;
+$weight-bold:     700;
+
+// ── Spacing (8px base unit) ───────────────────────────────────────────────────
+$space-1:   4px;
+$space-2:   8px;
+$space-3:   12px;
+$space-4:   16px;
+$space-5:   20px;
+$space-6:   24px;
+$space-8:   32px;
+$space-10:  40px;
+$space-12:  48px;
+$space-16:  64px;
+
+// ── Border radius ─────────────────────────────────────────────────────────────
+$radius-sm:   8px;
+$radius-md:   12px;
+$radius-lg:   16px;
+$radius-xl:   20px;
+$radius-2xl:  24px;
+$radius-full: 9999px;
+
+// ── Shadows ───────────────────────────────────────────────────────────────────
+$shadow-sm:   0 2px 8px rgba(0, 0, 0, 0.3);
+$shadow-md:   0 4px 20px rgba(0, 0, 0, 0.4);
+$shadow-glow: 0 0 24px rgba(0, 212, 200, 0.2);
+
+// ── Layout ────────────────────────────────────────────────────────────────────
+$mobile-max:    480px;
+$screen-width:  375px;
+$nav-height:    72px;
+$header-height: 60px;
+
+// ── Transitions ───────────────────────────────────────────────────────────────
+$transition-fast:   0.15s ease;
+$transition-base:   0.25s ease;
+$transition-slow:   0.4s ease;

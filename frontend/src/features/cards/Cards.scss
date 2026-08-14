@@ -1,0 +1,18 @@
+.cards-screen {
+  min-height: 100vh; background: $kudi-dark;
+  &__header { display: flex; align-items: center; justify-content: space-between; padding: $space-5; h2 { font-size: $text-lg; font-weight: $weight-bold; color: $white; } }
+  &__back { width: 40px; height: 40px; border-radius: $radius-md; background: $kudi-dark-card; border: 1px solid $kudi-dark-border; color: $white; display: flex; align-items: center; justify-content: center; }
+  &__body { padding: 0 $space-5 $space-8; display: flex; flex-direction: column; gap: $space-4; }
+  &__skeleton { height: 160px; border-radius: $radius-xl; background: $kudi-dark-card; animation: skeleton-pulse 1.4s ease infinite; }
+  &__card { border-radius: $radius-xl; padding: $space-5; &.virtual { background: $gradient-card; } &.physical { background: $gradient-subtle; border: 1px solid $kudi-dark-border; } }
+  &__card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: $space-4; }
+  &__card-type { font-size: $text-sm; color: rgba(255,255,255,0.8); }
+  &__frozen-badge { font-size: $text-xs; background: rgba(255,184,0,0.2); color: $warning; padding: 2px $space-2; border-radius: $radius-full; }
+  &__pending-badge { font-size: $text-xs; background: rgba(74,108,247,0.2); color: $kudi-blue; padding: 2px $space-2; border-radius: $radius-full; }
+  &__card-number { font-size: $text-lg; font-weight: $weight-bold; color: $white; letter-spacing: 3px; margin-bottom: $space-3; }
+  &__card-balance { font-size: $text-2xl; font-weight: $weight-bold; color: $white; margin-bottom: $space-4; }
+  &__card-actions { display: flex; gap: $space-3; button { flex: 1; padding: $space-3; border-radius: $radius-md; background: rgba(255,255,255,0.15); color: $white; font-size: $text-sm; font-weight: $weight-semibold; transition: background $transition-fast; &:hover { background: rgba(255,255,255,0.25); } } }
+  &__delivery { font-size: $text-xs; color: rgba(255,255,255,0.6); }
+  &__order-btn { width: 100%; padding: $space-4; border-radius: $radius-lg; background: $kudi-dark-card; border: 1.5px dashed $kudi-dark-border; color: $gray-400; font-size: $text-base; font-weight: $weight-semibold; transition: all $transition-fast; &:hover { border-color: $kudi-teal; color: $kudi-teal; } }
+}
+@keyframes skeleton-pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }

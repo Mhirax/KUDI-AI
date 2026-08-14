@@ -1,0 +1,43 @@
+# Node
+node_modules/
+dist/
+coverage/
+npm-debug.log*
+.npm
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Rust
+target/
+Cargo.lock
+
+# Prisma
+infrastructure/prisma/migrations/dev/
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Kubernetes secrets
+deployment/kubernetes/**/secrets.yaml
+!deployment/kubernetes/**/secrets.example.yaml
+
+# Build artifacts
+*.tsbuildinfo
+.turbo/
+
+# Testing
+/tests/e2e/reports/
+/tests/performance/results/

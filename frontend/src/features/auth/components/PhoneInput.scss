@@ -1,0 +1,70 @@
+.phone-input {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+
+  &__label {
+    font-size: $text-sm;
+    font-weight: $weight-medium;
+    color: $gray-400;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    background: $kudi-dark-card;
+    border: 1.5px solid $kudi-dark-border;
+    border-radius: $radius-lg;
+    overflow: hidden;
+    transition: border-color $transition-fast;
+
+    &:focus-within {
+      border-color: $kudi-teal;
+    }
+
+    &.has-error {
+      border-color: $error;
+    }
+
+    &.disabled {
+      opacity: 0.5;
+    }
+  }
+
+  &__prefix {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    padding: $space-4;
+    border-right: 1px solid $kudi-dark-border;
+    flex-shrink: 0;
+  }
+
+  &__flag { font-size: $text-base; line-height: 1; }
+
+  &__code {
+    font-size: $text-sm;
+    font-weight: $weight-semibold;
+    color: $white;
+  }
+
+  &__field {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: $space-4;
+    font-size: $text-base;
+    color: $white;
+    letter-spacing: 0.5px;
+
+    &::placeholder { color: $gray-600; }
+
+    &:disabled { cursor: not-allowed; }
+  }
+
+  &__error {
+    font-size: $text-xs;
+    color: $error;
+    margin-top: $space-1;
+  }
+}

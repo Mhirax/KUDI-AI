@@ -1,0 +1,148 @@
+.recipient-step {
+  flex: 1;
+  padding: 0 $space-5 $space-8;
+  display: flex;
+  flex-direction: column;
+  gap: $space-6;
+
+  &__section-title {
+    font-size: $text-sm;
+    font-weight: $weight-semibold;
+    color: $gray-400;
+    margin-bottom: $space-3;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    margin-bottom: $space-3;
+
+    label {
+      font-size: $text-sm;
+      color: $gray-400;
+    }
+  }
+
+  &__select,
+  &__input {
+    width: 100%;
+    background: $kudi-dark-card;
+    border: 1.5px solid $kudi-dark-border;
+    border-radius: $radius-lg;
+    padding: $space-4;
+    color: $white;
+    font-size: $text-base;
+    font-family: inherit;
+    transition: border-color $transition-fast;
+
+    option { background: $kudi-dark-card; }
+    &:focus { border-color: $kudi-teal; }
+    &::placeholder { color: $gray-600; }
+  }
+
+  &__lookup {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-3 $space-4;
+    border-radius: $radius-lg;
+    margin-bottom: $space-3;
+
+    &.loading { background: $kudi-dark-card; color: $gray-400; font-size: $text-sm; }
+    &.success { background: $success-bg; border: 1px solid rgba(0,196,140,0.3); }
+  }
+
+  &__spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid $kudi-dark-border;
+    border-top-color: $kudi-teal;
+    border-radius: $radius-full;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  &__lookup-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: $radius-full;
+    background: $success-bg;
+    color: $success;
+    font-size: $text-sm;
+    font-weight: $weight-bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__lookup-info { flex: 1; }
+
+  &__lookup-name {
+    font-size: $text-sm;
+    font-weight: $weight-semibold;
+    color: $white;
+  }
+
+  &__lookup-bank { font-size: $text-xs; color: $gray-400; }
+
+  &__hint { font-size: $text-xs; color: $gray-600; }
+
+  &__error { font-size: $text-sm; color: $error; margin-bottom: $space-3; }
+
+  &__btn {
+    width: 100%;
+    padding: $space-4;
+    border-radius: $radius-lg;
+    background: $gradient-brand;
+    color: $white;
+    font-size: $text-base;
+    font-weight: $weight-semibold;
+    &:active { opacity: 0.9; transform: scale(0.98); }
+    &:disabled { opacity: 0.5; }
+  }
+
+  &__beneficiaries {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+  }
+
+  &__beneficiary {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-3 $space-4;
+    background: $kudi-dark-card;
+    border: 1px solid $kudi-dark-border;
+    border-radius: $radius-lg;
+    text-align: left;
+    transition: border-color $transition-fast;
+    &:hover { border-color: $gray-800; }
+    &:active { transform: scale(0.98); }
+  }
+
+  &__ben-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: $radius-full;
+    background: rgba(74,108,247,0.15);
+    color: $kudi-blue;
+    font-size: $text-sm;
+    font-weight: $weight-bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__ben-info {
+    p { font-size: $text-sm; font-weight: $weight-semibold; color: $white; }
+    span { font-size: $text-xs; color: $gray-400; }
+  }
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

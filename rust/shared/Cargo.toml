@@ -1,0 +1,24 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition = "2021"
+description = "Shared Rust types/utilities (money type, error types, tracing setup) reused by every engine crate."
+license = "PROPRIETARY"
+authors = ["Kudi AI Bank Engineering <engineering@kudiaibank.com>"]
+
+[lib]
+name = "shared"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+rust_decimal = { version = "1", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
