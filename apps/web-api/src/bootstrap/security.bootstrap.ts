@@ -23,8 +23,17 @@ export function bootstrapSecurity(app: INestApplication): void {
       },
     }),
   );
+  // `CORS_ORIGIN=*` must stay the bare string '*' (the `cors` package's
+  // actual wildcard), not get routed through .split(',') into the array
+  // ['*'] — an array of origins is treated as an exact allowlist, and a
+  // real browser Origin header is never literally the string "*", so
+  // every cross-origin request would get silently blocked (fetch()
+  // reports this as a generic "Failed to fetch", no status code, since
+  // the browser never lets the response through). Only a real
+  // comma-separated origin list should go through .split(',').
+  const corsOrigin = process.env.CORS_ORIGIN;
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') || '*',
+    origin: !corsOrigin || corsOrigin === '*' ? '*' : corsOrigin.split(','),
     credentials: true,
   });
 
