@@ -4,6 +4,7 @@ import { KycTransferLimitCheckerService } from './kyc-transfer-limit-checker.ser
 import { PrismaTransferRepository } from '../persistence/prisma-transfer.repository';
 import { PrismaKycProfileRepository } from '../../../compliance/infrastructure/persistence/prisma-kyc-profile.repository';
 import { PrismaKycTierLimitRepository } from '../../../compliance/infrastructure/persistence/prisma-kyc-tier-limit.repository';
+import { KycTierResolverService } from '../../../compliance/infrastructure/services/kyc-tier-resolver.service';
 import { TransferLimitExceededException } from '../../domain/exceptions/transfer-limit-exceeded.exception';
 import { KycTier } from '../../../compliance/domain/enums/kyc-tier.enum';
 import { TransferType } from '../../domain/enums/transfer-type.enum';
@@ -23,7 +24,7 @@ import { Currency } from '../../../../shared/enums/currency.enum';
 describe('KycTransferLimitCheckerService (integration)', () => {
   const prisma = new PrismaService();
   const checker = new KycTransferLimitCheckerService(
-    new PrismaKycProfileRepository(prisma),
+    new KycTierResolverService(new PrismaKycProfileRepository(prisma)),
     new PrismaKycTierLimitRepository(prisma),
     new PrismaTransferRepository(prisma),
   );

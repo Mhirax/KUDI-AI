@@ -10,12 +10,14 @@ import { KYC_PROFILE_REPOSITORY } from './domain/repositories/kyc-profile.reposi
 import { KYC_TIER_LIMIT_REPOSITORY } from './domain/repositories/kyc-tier-limit.repository.interface';
 import { KYC_AUDIT_LOG_REPOSITORY } from './domain/repositories/kyc-audit-log.repository.interface';
 import { IDENTITY_VERIFICATION_PROVIDER } from './domain/services/identity-verification-provider.interface';
+import { KYC_TIER_RESOLVER } from './domain/services/kyc-tier-resolver.interface';
 
 // Infrastructure adapters (this module)
 import { PrismaKycProfileRepository } from './infrastructure/persistence/prisma-kyc-profile.repository';
 import { PrismaKycTierLimitRepository } from './infrastructure/persistence/prisma-kyc-tier-limit.repository';
 import { PrismaKycAuditLogRepository } from './infrastructure/persistence/prisma-kyc-audit-log.repository';
 import { FlutterwaveIdentityVerificationProvider } from './infrastructure/services/flutterwave-identity-verification-provider.service';
+import { KycTierResolverService } from './infrastructure/services/kyc-tier-resolver.service';
 
 // Flutterwave integration adapter
 import { FLUTTERWAVE_VERIFICATION_CLIENT } from '../../integrations/payment-gateway/flutterwave/verification/flutterwave-verification.port';
@@ -65,11 +67,14 @@ const eventHandlers = [UserRegisteredHandler];
     { provide: KYC_PROFILE_REPOSITORY, useClass: PrismaKycProfileRepository },
     { provide: KYC_TIER_LIMIT_REPOSITORY, useClass: PrismaKycTierLimitRepository },
     { provide: KYC_AUDIT_LOG_REPOSITORY, useClass: PrismaKycAuditLogRepository },
+    { provide: KYC_TIER_RESOLVER, useClass: KycTierResolverService },
     { provide: IDENTITY_VERIFICATION_PROVIDER, useClass: FlutterwaveIdentityVerificationProvider },
     { provide: FLUTTERWAVE_VERIFICATION_CLIENT, useClass: FlutterwaveVerificationAdapter },
   ],
-  // KYC_TIER_LIMIT_REPOSITORY is exported so Transfers/Accounts can read
-  // limits directly when Phase 1c/1d wire in enforcement.
-  exports: [KYC_PROFILE_REPOSITORY, KYC_TIER_LIMIT_REPOSITORY],
+  // KYC_TIER_LIMIT_REPOSITORY and KYC_TIER_RESOLVER are exported so
+  // Transfers/Accounts can read limits/resolve a user's tier directly
+  // (Phase 1c/1d enforcement, and the shared resolver from
+  // post-review finding #5).
+  exports: [KYC_PROFILE_REPOSITORY, KYC_TIER_LIMIT_REPOSITORY, KYC_TIER_RESOLVER],
 })
 export class ComplianceModule {}

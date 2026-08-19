@@ -7,14 +7,13 @@ import { Money } from '../../../../shared/value-objects/money.vo';
 // Cross-module dependency on Compliance's published ports, same
 // sanctioned pattern as Transfers -> Accounts (ACCOUNT_REPOSITORY).
 import {
-  KYC_PROFILE_REPOSITORY,
-  IKycProfileRepository,
-} from '../../../compliance/domain/repositories/kyc-profile.repository.interface';
+  KYC_TIER_RESOLVER,
+  IKycTierResolver,
+} from '../../../compliance/domain/services/kyc-tier-resolver.interface';
 import {
   KYC_TIER_LIMIT_REPOSITORY,
   IKycTierLimitRepository,
 } from '../../../compliance/domain/repositories/kyc-tier-limit.repository.interface';
-import { KycTier } from '../../../compliance/domain/enums/kyc-tier.enum';
 
 const ROLLING_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -33,7 +32,7 @@ const ROLLING_WINDOW_MS = 24 * 60 * 60 * 1000;
 @Injectable()
 export class KycTransferLimitCheckerService implements IKycTransferLimitChecker {
   constructor(
-    @Inject(KYC_PROFILE_REPOSITORY) private readonly kycProfileRepository: IKycProfileRepository,
+    @Inject(KYC_TIER_RESOLVER) private readonly kycTierResolver: IKycTierResolver,
     @Inject(KYC_TIER_LIMIT_REPOSITORY) private readonly kycTierLimitRepository: IKycTierLimitRepository,
     @Inject(TRANSFER_REPOSITORY) private readonly transferRepository: ITransferRepository,
   ) {}
@@ -45,12 +44,7 @@ export class KycTransferLimitCheckerService implements IKycTransferLimitChecker 
   }): Promise<void> {
     const { userId, sourceAccountId, amount } = params;
 
-    // No profile is a data anomaly (one is created automatically on
-    // registration) — fall back to the most restrictive tier rather
-    // than let an unverified-looking transfer through uncapped.
-    const profile = await this.kycProfileRepository.findByUserId(userId);
-    const tier = profile?.tier ?? KycTier.TIER_1;
-
+    const tier = await this.kycTierResolver.resolveTier(userId);
     const limits = await this.kycTierLimitRepository.findByTier(tier, amount.getCurrency());
 
     if (limits.perTransactionLimit && !limits.perTransactionLimit.isGreaterThanOrEqualTo(amount)) {

@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../infrastructure/database/prisma.servic
 import { MaxBalanceGuardService } from './max-balance-guard.service';
 import { PrismaKycProfileRepository } from '../../../compliance/infrastructure/persistence/prisma-kyc-profile.repository';
 import { PrismaKycTierLimitRepository } from '../../../compliance/infrastructure/persistence/prisma-kyc-tier-limit.repository';
+import { KycTierResolverService } from '../../../compliance/infrastructure/services/kyc-tier-resolver.service';
 import { MaxBalanceExceededException } from '../../domain/exceptions/max-balance-exceeded.exception';
 import { KycTier } from '../../../compliance/domain/enums/kyc-tier.enum';
 import { Account } from '../../domain/entities/account.entity';
@@ -23,7 +24,7 @@ import { Currency } from '../../../../shared/enums/currency.enum';
 describe('MaxBalanceGuardService (integration)', () => {
   const prisma = new PrismaService();
   const guard = new MaxBalanceGuardService(
-    new PrismaKycProfileRepository(prisma),
+    new KycTierResolverService(new PrismaKycProfileRepository(prisma)),
     new PrismaKycTierLimitRepository(prisma),
   );
 
