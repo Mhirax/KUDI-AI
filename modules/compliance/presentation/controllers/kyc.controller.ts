@@ -20,6 +20,18 @@ import { GetKycAuditHistoryQuery } from '../../application/queries/get-kyc-audit
 import { AccessTokenPayload } from '../../../identity/application/ports/token.service.interface';
 import { UserRole } from '../../../identity/domain/enums/user-role.enum';
 
+// Cross-module: reuses Accounts' existing commands/DTOs/response shape
+// directly via the shared CommandBus (verified empirically that
+// @nestjs/cqrs's CommandBus/QueryBus/EventBus are singletons shared
+// across every module that imports CqrsModule, not one bus per
+// module) rather than adding a duplicate command+handler pair here.
+// See this controller's freeze/unfreeze methods below and
+// modules/compliance/implementation.md, Phase 5b.
+import { FreezeAccountCommand } from '../../../accounts/application/commands/freeze-account/freeze-account.command';
+import { UnfreezeAccountCommand } from '../../../accounts/application/commands/unfreeze-account/unfreeze-account.command';
+import { FreezeAccountDto } from '../../../accounts/application/dto/freeze-account.dto';
+import { AccountResponseDto } from '../../../accounts/application/dto/account-response.dto';
+
 const COMPLIANCE_ROLES = [UserRole.COMPLIANCE_OFFICER, UserRole.ADMIN, UserRole.SUPER_ADMIN];
 
 @Controller('kyc')
@@ -86,6 +98,37 @@ export class KycController {
     return this.commandBus.execute(
       new ManuallyVerifyNinCommand(staff.sub, userId, dto.nin, dto.reason),
     );
+  }
+
+  /**
+   * Phase 5b (modules/compliance/implementation.md): staff already
+   * investigating a user's KYC issue can freeze/unfreeze the account
+   * without leaving this surface. Thin proxies to Accounts' existing
+   * `FreezeAccountCommand`/`UnfreezeAccountCommand` — same commands
+   * `AccountsController`'s own `/accounts/:id/freeze`/`unfreeze`
+   * dispatch, just reachable here too. Unlike that controller (whose
+   * `unfreeze` is `ADMIN`/`SUPER_ADMIN` only), both actions here use
+   * the same `COMPLIANCE_ROLES` as the rest of this staff surface —
+   * a compliance officer who can freeze an account during an
+   * investigation shouldn't need to escalate to an admin just to
+   * reverse their own action once it's resolved.
+   */
+  @Post('staff/accounts/:accountId/freeze')
+  @UseGuards(RolesGuard)
+  @Roles(...COMPLIANCE_ROLES)
+  async freezeAccount(
+    @Param('accountId') accountId: string,
+    @Body() dto: FreezeAccountDto,
+  ): Promise<AccountResponseDto> {
+    return this.commandBus.execute(new FreezeAccountCommand(accountId, dto.reason));
+  }
+
+  /** See `freezeAccount`'s doc comment. */
+  @Post('staff/accounts/:accountId/unfreeze')
+  @UseGuards(RolesGuard)
+  @Roles(...COMPLIANCE_ROLES)
+  async unfreezeAccount(@Param('accountId') accountId: string): Promise<AccountResponseDto> {
+    return this.commandBus.execute(new UnfreezeAccountCommand(accountId));
   }
 
   @Throttle(KYC_VERIFICATION_THROTTLE)

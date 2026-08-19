@@ -50,24 +50,24 @@ issues — including one real security bug in the internal-transfer
 limit check. **All 5 are now fixed**, each in its own traced commit.
 Nothing outstanding from that review remains open.
 
-**Phase 5 — manual review surface:** 🟡 In progress. 5a (staff-only
-lookup — profile status + full audit history in one call) is done. 5b
-(manual approve/override for failed verifications, plus wiring
-freeze/unfreeze into the same surface) is next, pending one design
-decision on the override mechanism — see the note in that phase's
-section before implementing it further.
+**Phase 5 — manual review surface:** ✅ Done. 5a (staff-only lookup —
+profile status + full audit history in one call) and 5b (manual
+approve/override for failed verifications, requiring staff to
+re-confirm the real BVN/NIN rather than a bare override; plus
+freeze/unfreeze wired into the same surface, with a role asymmetry
+fixed along the way) are both complete and tested.
 
 **Where we're going next:** Phases 1–3 — the full bar for "responsible
 with real customer money" — are functionally complete, tested, and
 hardened against everything the review found; what's left before all
 three are fully closed is 1a's compliance sign-off and one manual
 click-through pass (covers 1f's and Phase 2's environment-constrained
-gaps in one sitting). Phase 5 is underway now, chosen ahead of Phase 4
-deliberately: Phase 4b's screening logic explicitly routes flagged
-matches to Phase 5's review surface, so building 5 first gives 4
-somewhere real to route to instead of a destination that doesn't exist
-yet. Phase 4 also opens with a vendor/cost decision (which sanctions/
-PEP watchlist provider) that isn't an engineering call to make alone.
+gaps in one sitting). Phase 5 is now done, deliberately built ahead of
+Phase 4: Phase 4b's screening logic explicitly routes flagged matches
+to Phase 5's review surface, so it now has somewhere real to route to
+instead of a destination that didn't exist yet. **Phase 4 is next**,
+opening with a vendor/cost decision (which sanctions/PEP watchlist
+provider) that isn't an engineering call to make alone.
 
 ---
 
@@ -185,7 +185,8 @@ Each gets its own commit as it's fixed, so the history traces cleanly.
   - `KycAuditLogEntry` extended with two nullable columns (`performedByUserId`, `notes`) — non-null only for staff-performed entries, so the audit trail can distinguish "this user verified themselves" from "staff overrode a failed check, and here's why." Written directly by the override handlers (not via `KycAuditRecorderService`) to avoid a duplicate routine row for the same pass — verified explicitly by a dedicated test.
   - Any resulting `KycTierUpgradedEvent` is still filtered through to `KycAuditRecorderService`, and every event is still published to the `EventBus` as normal — Accounts' account-activation handler is unaffected.
   - Verified: `tsc` clean, DI-graph boot, full unit suite 36/36, and a new real-DB integration suite (`manually-verify-bvn.handler.integration-spec.ts`, 3 tests) proving: a pass is recorded and attributed to the staff member *even when the provider reports no name match* (the actual point of the feature), no duplicate routine audit row is written, and the NIN path mirrors correctly including `recordNinVerified()`'s existing "NIN alone doesn't advance tier without BVN" invariant. Identity's user lookup and the Flutterwave provider call are stubbed in this test — deliberately: they're external/cross-module boundaries unchanged from the already-existing self-service handlers, and this codebase doesn't call real Flutterwave from any automated test anywhere.
-- [ ] Wire the existing `POST /accounts/:id/freeze` / `unfreeze` (already "compliance only" per `docs/API-CONTRACT.md`) into this same surface so staff have one place to act.
+- [x] Wired the existing `FreezeAccountCommand`/`UnfreezeAccountCommand` into this same surface — `POST /kyc/staff/accounts/:accountId/freeze` and `/unfreeze` in `KycController`, thin proxies to the exact same commands `AccountsController`'s own `/accounts/:id/freeze`/`unfreeze` already dispatch. No new command/handler logic — verified empirically (a throwaway smoke script dispatching `FreezeAccountCommand` from the root `CommandBus` and confirming it reached `FreezeAccountHandler`, registered in a different module) that `@nestjs/cqrs`'s `CommandBus`/`QueryBus`/`EventBus` are singletons shared across every module that imports `CqrsModule`, not one bus per module — so this needed no new module import, no duplicate command, just a proxying controller method. Fixed a role asymmetry while here: `AccountsController`'s own `unfreeze` is `ADMIN`/`SUPER_ADMIN` only (not `COMPLIANCE_OFFICER`, unlike its `freeze`); the new compliance-surface routes use `COMPLIANCE_ROLES` for both, so a compliance officer who freezes an account during an investigation doesn't need to escalate to an admin to reverse it. `AccountsController`'s own routes/roles are untouched.
+  - Verified: `tsc` clean, a DI-graph boot of `AppModule`, full unit suite 36/36, full integration suite 18/18 (no new tests added for this piece specifically — it's a pure proxy to already-tested commands, and the cross-module `CommandBus` sharing was verified directly rather than via a new test file).
 
 ## Phase 6 — Transaction monitoring
 *Ongoing, not onboarding — needs real transaction volume to tune against, so deliberately last.*
