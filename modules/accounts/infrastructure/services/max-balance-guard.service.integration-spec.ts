@@ -92,4 +92,43 @@ describe('MaxBalanceGuardService (integration)', () => {
       guard.assertWithinLimit(account, Money.fromDecimalString('20000.00', Currency.NGN)),
     ).rejects.toThrow(MaxBalanceExceededException);
   });
+
+  // Post-review finding #4 (modules/compliance/implementation.md):
+  // assertWithinLimit's queries must be able to run on the same
+  // connection as an enclosing $transaction, not a second one from the
+  // pool, when a `tx` client is passed through.
+  describe('running inside a real $transaction (post-review finding #4)', () => {
+    it('accepts a transaction client and evaluates correctly through it', async () => {
+      const userId = await givenUserAtTier(KycTier.TIER_1);
+      const account = accountWithBalance(userId, '290000.00');
+
+      await prisma.$transaction(async (tx) => {
+        await expect(
+          guard.assertWithinLimit(account, Money.fromDecimalString('5000.00', Currency.NGN), tx),
+        ).resolves.toBeUndefined();
+
+        await expect(
+          guard.assertWithinLimit(account, Money.fromDecimalString('20000.00', Currency.NGN), tx),
+        ).rejects.toThrow(MaxBalanceExceededException);
+      });
+    });
+
+    it('rolling back the transaction on rejection also rolls back other writes made in it', async () => {
+      const userId = await givenUserAtTier(KycTier.TIER_1);
+      const account = accountWithBalance(userId, '290000.00');
+      const canaryUserId = randomUUID();
+
+      await expect(
+        prisma.$transaction(async (tx) => {
+          // A throwaway write that should never survive if the guard
+          // throws later in the same transaction.
+          await tx.kycProfile.create({ data: { userId: canaryUserId, tier: KycTier.TIER_1 } });
+          await guard.assertWithinLimit(account, Money.fromDecimalString('20000.00', Currency.NGN), tx);
+        }),
+      ).rejects.toThrow(MaxBalanceExceededException);
+
+      const canary = await prisma.kycProfile.findUnique({ where: { userId: canaryUserId } });
+      expect(canary).toBeNull();
+    });
+  });
 });

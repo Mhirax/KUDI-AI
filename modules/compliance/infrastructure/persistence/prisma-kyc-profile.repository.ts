@@ -14,8 +14,9 @@ export class PrismaKycProfileRepository implements IKycProfileRepository {
     return record ? KycProfileMapper.toDomain(record) : null;
   }
 
-  async findByUserId(userId: string): Promise<KycProfile | null> {
-    const record = await this.prisma.kycProfile.findUnique({ where: { userId } });
+  async findByUserId(userId: string, tx?: any): Promise<KycProfile | null> {
+    const client = tx ?? this.prisma;
+    const record = await client.kycProfile.findUnique({ where: { userId } });
     return record ? KycProfileMapper.toDomain(record) : null;
   }
 

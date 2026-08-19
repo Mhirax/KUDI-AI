@@ -10,8 +10,13 @@ import { Currency } from '../../../../shared/enums/currency.enum';
 export class PrismaKycTierLimitRepository implements IKycTierLimitRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findByTier(tier: KycTier, currency: Currency = Currency.NGN): Promise<KycTierLimits> {
-    const record = await this.prisma.kycTierLimit.findUnique({ where: { tier } });
+  async findByTier(
+    tier: KycTier,
+    currency: Currency = Currency.NGN,
+    tx?: any,
+  ): Promise<KycTierLimits> {
+    const client = tx ?? this.prisma;
+    const record = await client.kycTierLimit.findUnique({ where: { tier } });
     return record ? KycTierLimitMapper.toDomain(record) : getDefaultKycTierLimits(tier, currency);
   }
 }

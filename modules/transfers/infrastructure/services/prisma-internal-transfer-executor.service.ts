@@ -110,8 +110,11 @@ export class PrismaInternalTransferExecutor implements IInternalTransferExecutor
         // so — unlike the per-transaction/daily checks in
         // KycTransferLimitCheckerService — this one has no race-condition
         // caveat: a throw here rolls back the whole transaction via the
-        // catch block below.
-        await this.maxBalanceGuard.assertWithinLimit(destinationAccount, params.amount);
+        // catch block below. `tx` is passed through so the guard's own
+        // KYC lookups run on this same reserved connection instead of
+        // checking out a second one from the pool for their duration
+        // (post-review finding #4 — see modules/compliance/implementation.md).
+        await this.maxBalanceGuard.assertWithinLimit(destinationAccount, params.amount, tx);
         destinationAccount.credit(params.amount, transfer.reference.getValue());
 
         await this.saveAccountInTransaction(tx, sourceAccount);

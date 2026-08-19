@@ -19,8 +19,8 @@ export class KycTierResolverService implements IKycTierResolver {
     @Inject(KYC_PROFILE_REPOSITORY) private readonly kycProfileRepository: IKycProfileRepository,
   ) {}
 
-  async resolveTier(userId: string): Promise<KycTier> {
-    const profile = await this.kycProfileRepository.findByUserId(userId);
+  async resolveTier(userId: string, tx?: any): Promise<KycTier> {
+    const profile = await this.kycProfileRepository.findByUserId(userId, tx);
     return profile?.tier ?? KycTier.TIER_1;
   }
 }

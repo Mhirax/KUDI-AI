@@ -30,9 +30,9 @@ export class MaxBalanceGuardService implements IMaxBalanceGuard {
     @Inject(KYC_TIER_LIMIT_REPOSITORY) private readonly kycTierLimitRepository: IKycTierLimitRepository,
   ) {}
 
-  async assertWithinLimit(account: Account, amount: Money): Promise<void> {
-    const tier = await this.kycTierResolver.resolveTier(account.userId);
-    const limits = await this.kycTierLimitRepository.findByTier(tier, account.currency);
+  async assertWithinLimit(account: Account, amount: Money, tx?: any): Promise<void> {
+    const tier = await this.kycTierResolver.resolveTier(account.userId, tx);
+    const limits = await this.kycTierLimitRepository.findByTier(tier, account.currency, tx);
 
     if (limits.maxBalance && !limits.maxBalance.isGreaterThanOrEqualTo(account.balance.add(amount))) {
       throw new MaxBalanceExceededException(tier);
