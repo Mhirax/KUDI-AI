@@ -21,14 +21,13 @@ import { FlutterwaveIdentityVerificationProvider } from './infrastructure/servic
 import { FLUTTERWAVE_VERIFICATION_CLIENT } from '../../integrations/payment-gateway/flutterwave/verification/flutterwave-verification.port';
 import { FlutterwaveVerificationAdapter } from '../../integrations/payment-gateway/flutterwave/verification/flutterwave-verification.adapter';
 
-// Application command/query/event handlers
+// Application command/query/event handlers/services
 import { SubmitBvnVerificationHandler } from './application/commands/submit-bvn-verification/submit-bvn-verification.handler';
 import { SubmitNinVerificationHandler } from './application/commands/submit-nin-verification/submit-nin-verification.handler';
 import { GetMyKycStatusHandler } from './application/queries/get-my-kyc-status/get-my-kyc-status.handler';
 import { GetKycAuditHistoryHandler } from './application/queries/get-kyc-audit-history/get-kyc-audit-history.handler';
 import { UserRegisteredHandler } from './application/event-handlers/user-registered.handler';
-import { RecordVerificationAuditHandler } from './application/event-handlers/record-verification-audit.handler';
-import { RecordTierChangeAuditHandler } from './application/event-handlers/record-tier-change-audit.handler';
+import { KycAuditRecorderService } from './application/services/kyc-audit-recorder.service';
 
 // Presentation
 import { KycController } from './presentation/controllers/kyc.controller';
@@ -40,7 +39,7 @@ import { IdentityModule } from '../identity/identity.module';
 
 const commandHandlers = [SubmitBvnVerificationHandler, SubmitNinVerificationHandler];
 const queryHandlers = [GetMyKycStatusHandler, GetKycAuditHistoryHandler];
-const eventHandlers = [UserRegisteredHandler, RecordVerificationAuditHandler, RecordTierChangeAuditHandler];
+const eventHandlers = [UserRegisteredHandler];
 
 /**
  * Compliance/KYC bounded-context module.
@@ -62,6 +61,7 @@ const eventHandlers = [UserRegisteredHandler, RecordVerificationAuditHandler, Re
     ...commandHandlers,
     ...queryHandlers,
     ...eventHandlers,
+    KycAuditRecorderService,
     { provide: KYC_PROFILE_REPOSITORY, useClass: PrismaKycProfileRepository },
     { provide: KYC_TIER_LIMIT_REPOSITORY, useClass: PrismaKycTierLimitRepository },
     { provide: KYC_AUDIT_LOG_REPOSITORY, useClass: PrismaKycAuditLogRepository },

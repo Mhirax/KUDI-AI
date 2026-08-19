@@ -15,6 +15,7 @@ import { VerificationType } from '../../../domain/enums/verification-type.enum';
 import { KycProfileNotFoundException } from '../../../domain/exceptions/kyc-profile-not-found.exception';
 import { IdentityMismatchException } from '../../../domain/exceptions/identity-mismatch.exception';
 import { KycStatusResponseDto } from '../../dto/kyc-status-response.dto';
+import { KycAuditRecorderService } from '../../services/kyc-audit-recorder.service';
 
 // Cross-module dependency on Identity's exported port — same pattern
 // as Transfers depending on Accounts' ACCOUNT_REPOSITORY.
@@ -40,6 +41,7 @@ export class SubmitBvnVerificationHandler
     @Inject(USER_REPOSITORY) private readonly userRepository: IUserRepository,
     @Inject(IDENTITY_VERIFICATION_PROVIDER)
     private readonly verificationProvider: IIdentityVerificationProvider,
+    private readonly auditRecorder: KycAuditRecorderService,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -67,14 +69,21 @@ export class SubmitBvnVerificationHandler
     if (!result.matched) {
       profile.recordVerificationFailed(VerificationType.BVN, 'Provider-returned name did not match');
       await this.kycProfileRepository.save(profile);
-      profile.pullDomainEvents().forEach((event) => this.eventBus.publish(event));
+      const failureEvents = profile.pullDomainEvents();
+      // Awaited and durable (see KycAuditRecorderService's header
+      // comment) — done before publishing to EventBus for other
+      // consumers, and before the exception below.
+      await this.auditRecorder.recordDomainEvents(failureEvents);
+      failureEvents.forEach((event) => this.eventBus.publish(event));
       throw new IdentityMismatchException();
     }
 
     const bvnHash = createHash('sha256').update(bvn.getValue()).digest('hex');
     profile.recordBvnVerified(bvnHash, bvn.toMasked());
     await this.kycProfileRepository.save(profile);
-    profile.pullDomainEvents().forEach((event) => this.eventBus.publish(event));
+    const successEvents = profile.pullDomainEvents();
+    await this.auditRecorder.recordDomainEvents(successEvents);
+    successEvents.forEach((event) => this.eventBus.publish(event));
 
     return KycStatusResponseDto.fromDomain(profile);
   }

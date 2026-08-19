@@ -1,8 +1,7 @@
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { PrismaKycAuditLogRepository } from '../../infrastructure/persistence/prisma-kyc-audit-log.repository';
-import { RecordVerificationAuditHandler } from './record-verification-audit.handler';
-import { RecordTierChangeAuditHandler } from './record-tier-change-audit.handler';
+import { KycAuditRecorderService } from './kyc-audit-recorder.service';
 import { GetKycAuditHistoryHandler } from '../queries/get-kyc-audit-history/get-kyc-audit-history.handler';
 import { GetKycAuditHistoryQuery } from '../queries/get-kyc-audit-history/get-kyc-audit-history.query';
 import { VerificationPassedEvent } from '../../domain/events/verification-passed.event';
@@ -15,19 +14,19 @@ import { KycAuditOutcome } from '../../domain/enums/kyc-audit-outcome.enum';
 
 /**
  * Real Prisma/Postgres integration test (the DB configured in `.env`) —
- * exercises the two audit event handlers and the history query against
- * the real kyc_audit_log table, not mocks. See
- * modules/compliance/implementation.md, Phase 3.
+ * exercises `KycAuditRecorderService` and the history query against the
+ * real kyc_audit_log table, not mocks. See
+ * modules/compliance/implementation.md, Phase 3 / post-review finding #2.
  *
- * Handlers are instantiated directly (not via NestJS's EventBus) so the
- * test is deterministic — publishing through the real CQRS EventBus
- * doesn't await handler completion, which would make assertions racy.
+ * `recordDomainEvents()` is called directly and awaited here — the same
+ * way the command handlers now call it — not via NestJS's EventBus,
+ * which is exactly the fire-and-forget behavior this service was
+ * introduced to avoid for audit writes.
  */
-describe('KYC audit trail (integration)', () => {
+describe('KycAuditRecorderService (integration)', () => {
   const prisma = new PrismaService();
   const auditLogRepository = new PrismaKycAuditLogRepository(prisma);
-  const verificationHandler = new RecordVerificationAuditHandler(auditLogRepository);
-  const tierChangeHandler = new RecordTierChangeAuditHandler(auditLogRepository);
+  const recorder = new KycAuditRecorderService(auditLogRepository);
   const historyHandler = new GetKycAuditHistoryHandler(auditLogRepository);
 
   const createdUserIds: string[] = [];
@@ -42,9 +41,9 @@ describe('KYC audit trail (integration)', () => {
     createdUserIds.push(userId);
     const kycProfileId = randomUUID();
 
-    await verificationHandler.handle(
+    await recorder.recordDomainEvents([
       new VerificationPassedEvent(kycProfileId, userId, VerificationType.BVN),
-    );
+    ]);
 
     const history = await auditLogRepository.findByUserId(userId);
     expect(history).toHaveLength(1);
@@ -61,9 +60,9 @@ describe('KYC audit trail (integration)', () => {
     createdUserIds.push(userId);
     const kycProfileId = randomUUID();
 
-    await verificationHandler.handle(
+    await recorder.recordDomainEvents([
       new VerificationFailedEvent(kycProfileId, userId, VerificationType.NIN, 'Name mismatch'),
-    );
+    ]);
 
     const history = await auditLogRepository.findByUserId(userId);
     expect(history).toHaveLength(1);
@@ -78,8 +77,8 @@ describe('KYC audit trail (integration)', () => {
     createdUserIds.push(userId);
     const kycProfileId = randomUUID();
 
-    await tierChangeHandler.handle(new KycTierUpgradedEvent(kycProfileId, userId, KycTier.TIER_2));
-    await tierChangeHandler.handle(new KycTierUpgradedEvent(kycProfileId, userId, KycTier.TIER_3));
+    await recorder.recordDomainEvents([new KycTierUpgradedEvent(kycProfileId, userId, KycTier.TIER_2)]);
+    await recorder.recordDomainEvents([new KycTierUpgradedEvent(kycProfileId, userId, KycTier.TIER_3)]);
 
     const history = await auditLogRepository.findByUserId(userId);
     expect(history).toHaveLength(2);
@@ -92,24 +91,22 @@ describe('KYC audit trail (integration)', () => {
     expect(second.newTier).toBe(KycTier.TIER_3);
   });
 
-  it('returns a user\'s full history, oldest first, via GetKycAuditHistoryQuery', async () => {
+  it('records a batch of events in the order given, matching pullDomainEvents() + recordDomainEvents() usage', async () => {
     const userId = randomUUID();
     createdUserIds.push(userId);
     const kycProfileId = randomUUID();
 
-    await verificationHandler.handle(
-      new VerificationFailedEvent(kycProfileId, userId, VerificationType.BVN, 'Name mismatch'),
-    );
-    await verificationHandler.handle(
+    // Mirrors what SubmitBvnVerificationHandler does: pull all events off
+    // the aggregate in one go, then hand the whole array to the recorder.
+    await recorder.recordDomainEvents([
       new VerificationPassedEvent(kycProfileId, userId, VerificationType.BVN),
-    );
-    await tierChangeHandler.handle(new KycTierUpgradedEvent(kycProfileId, userId, KycTier.TIER_2));
+      new KycTierUpgradedEvent(kycProfileId, userId, KycTier.TIER_2),
+    ]);
 
     const results = await historyHandler.execute(new GetKycAuditHistoryQuery(userId));
-    expect(results).toHaveLength(3);
-    expect(results[0].outcome).toBe(KycAuditOutcome.FAILED);
-    expect(results[1].outcome).toBe(KycAuditOutcome.PASSED);
-    expect(results[2].eventType).toBe(KycAuditEventType.TIER_CHANGE);
+    expect(results).toHaveLength(2);
+    expect(results[0].outcome).toBe(KycAuditOutcome.PASSED);
+    expect(results[1].eventType).toBe(KycAuditEventType.TIER_CHANGE);
   });
 
   it('returns an empty history for a user with no audit entries', async () => {
