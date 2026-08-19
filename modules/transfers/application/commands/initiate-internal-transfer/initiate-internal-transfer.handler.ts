@@ -11,6 +11,7 @@ import {
   IKycTransferLimitChecker,
 } from '../../../domain/services/kyc-transfer-limit-checker.interface';
 import { SelfTransferNotAllowedException } from '../../../domain/exceptions/self-transfer-not-allowed.exception';
+import { UnauthorizedTransferException } from '../../../domain/exceptions/unauthorized-transfer.exception';
 import { TransferType } from '../../../domain/enums/transfer-type.enum';
 import { Money } from '../../../../../shared/value-objects/money.vo';
 import { TransferResponseDto } from '../../dto/transfer-response.dto';
@@ -53,6 +54,19 @@ export class InitiateInternalTransferHandler
     const sourceAccount = await this.accountRepository.findById(command.sourceAccountId);
     if (!sourceAccount) {
       throw new AccountNotFoundException(command.sourceAccountId);
+    }
+
+    // Ownership must be checked before anything that reads sourceAccount's
+    // own data (the KYC limit check below reads its real transfer
+    // volume) — otherwise a caller who doesn't own this account can use
+    // the limit-check's outcome (exceeded vs. not) as an oracle on the
+    // real owner's transfer activity before ever being told they're
+    // unauthorized. The executor re-checks this again inside its
+    // transaction against a freshly-loaded record (see that file's
+    // header comment) — this is the earlier, cheaper check, not a
+    // replacement for it.
+    if (sourceAccount.userId !== command.initiatorUserId) {
+      throw new UnauthorizedTransferException();
     }
 
     const amount = Money.fromDecimalString(command.amount, sourceAccount.currency);

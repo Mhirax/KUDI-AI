@@ -57,6 +57,22 @@ tracker's original "Definition of done" below.
 
 ---
 
+## Post-implementation review findings
+
+A deep technical review of Phases 1–3 (code-review skill, high effort,
+`dev` vs `main`) after all three phases first landed surfaced 5 issues.
+Each gets its own commit as it's fixed, so the history traces cleanly.
+
+| # | Finding | Severity | Status |
+|---|---|---|---|
+| 1 | Internal transfer: KYC limit check ran on `sourceAccountId` before ownership was verified — an attacker could use a victim's real account id as source and read a signal about the victim's transfer volume from the exception type returned, before being told "unauthorized". | 🔴 Real security bug, introduced by 1c | ✅ Fixed — see 1c note below |
+| 2 | Audit trail (Phase 3) was written via `EventBus.publish()`, which is fire-and-forget in `@nestjs/cqrs` — a DB failure during the write would be silently logged and dropped, never surfaced to the caller, while the verification request still returned success. Undermined "durable" audit trail. | 🟡 Real gap | ⬜ In progress |
+| 3 | Rate limiting (Phase 2) is IP-keyed with no `trust proxy` configuration. If `gateway/api-gateway` ever actually routes traffic (it doesn't yet — no routes wired), every request would appear to share the gateway's IP, and the login/verification limits would apply platform-wide instead of per-abuser. | 🟡 Real gap, not yet live | ⬜ Planned |
+| 4 | `MaxBalanceGuardService`'s two lookups run on the shared `PrismaService` connection even when called from inside `PrismaInternalTransferExecutor`'s `$transaction` — a second connection held open alongside the transaction's own, risking pool contention/timeouts under concurrent load. | 🟡 Real gap | ⬜ Planned |
+| 5 | The "no KYC profile → assume TIER_1" fallback rule is implemented identically in two places (`MaxBalanceGuardService`, `KycTransferLimitCheckerService`) instead of one shared resolver — a future change to that rule could easily be applied to one copy and missed in the other. | 🟢 Minor, maintainability | ⬜ Planned |
+
+---
+
 ## Phase 1 — Tier-based transaction limits
 *The core gap: tiers currently only turn an account on/off — they don't yet control how much money can move.*
 
@@ -74,6 +90,7 @@ tracker's original "Definition of done" below.
 - [x] Enforce the rolling 24h daily transfer limit — `ITransferRepository.sumSourceAmountSince()` sums SUCCESSFUL/PROCESSING transfers in the last 24h.
   - **Not fully atomic with the debit** — the sum-check and the debit are separate reads/writes, not inside one DB transaction. Two transfers submitted concurrently, each individually under the cap, could in principle combine to exceed it before either commits. Documented in the service's header comment. Acceptable for a foundation build with no real concurrent load; revisit before this matters in production (e.g. move the check inside `PrismaInternalTransferExecutor`'s existing `$transaction`, or serialize on the source account).
 - [x] Reject over-limit transfers with a clear message via `TransferLimitExceededException` (422, code `TRANSFER_LIMIT_EXCEEDED`) — "Upgrade your verification to send more."
+- **Post-review fix (finding #1 above):** `InitiateInternalTransferHandler` now checks `sourceAccount.userId !== command.initiatorUserId` (throwing `UnauthorizedTransferException`) *before* calling the KYC limit checker, not after. Previously the limit check ran first, against an account the caller might not own, letting the exception type returned (limit-exceeded vs. eventually-unauthorized) leak a signal about the real owner's transfer volume. The executor's own ownership check (inside its transaction, against a freshly-loaded record) is unchanged and still runs — this is the earlier, cheaper check, not a replacement.
 
 ### 1d. Enforce the balance ceiling
 - [x] Enforce a max-balance ceiling per tier on credit operations in `modules/accounts` — `MaxBalanceGuardService` (`modules/accounts/infrastructure/services/max-balance-guard.service.ts`), one shared implementation used by both real credit paths that exist today:
