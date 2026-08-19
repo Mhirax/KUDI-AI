@@ -85,6 +85,30 @@ export class KycAuditLogEntry {
     });
   }
 
+  static forSanctionsScreening(params: {
+    userId: string;
+    kycProfileId: string;
+    outcome: KycAuditOutcome;
+    notes: string | null;
+    occurredAt: Date;
+    performedByUserId?: string | null;
+  }): KycAuditLogEntry {
+    return new KycAuditLogEntry({
+      id: randomUUID(),
+      userId: params.userId,
+      kycProfileId: params.kycProfileId,
+      eventType: KycAuditEventType.SANCTIONS_SCREENING,
+      verificationType: null,
+      outcome: params.outcome,
+      failureReason: null,
+      previousTier: null,
+      newTier: null,
+      performedByUserId: params.performedByUserId ?? null,
+      notes: params.notes,
+      createdAt: params.occurredAt,
+    });
+  }
+
   static reconstitute(props: KycAuditLogEntryProps): KycAuditLogEntry {
     return new KycAuditLogEntry(props);
   }

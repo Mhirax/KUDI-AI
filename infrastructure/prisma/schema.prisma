@@ -202,12 +202,22 @@ model KycProfile {
   /// SHA-256 hash only — never the raw NIN.
   ninHash       String?
   ninMasked     String?
+  /// Set when sanctions screening (Phase 4) finds a candidate match on
+  /// this profile's verified name — an open flag pending compliance
+  /// review, not an automatic block. Null once cleared or if never
+  /// flagged.
+  sanctionsFlaggedAt DateTime?
+  /// Set when a compliance officer clears an open sanctions flag.
+  /// `sanctionsFlaggedAt != null && sanctionsClearedAt == null` is
+  /// what "currently flagged, needs review" means.
+  sanctionsClearedAt DateTime?
   /// Optimistic concurrency token.
   version       Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   @@index([tier])
+  @@index([sanctionsFlaggedAt, sanctionsClearedAt])
   @@map("kyc_profiles")
 }
 
@@ -215,6 +225,7 @@ model KycProfile {
 enum KycAuditEventType {
   VERIFICATION_ATTEMPT
   TIER_CHANGE
+  SANCTIONS_SCREENING
 }
 
 // Mirrors modules/compliance/domain/enums/kyc-audit-outcome.enum.ts
@@ -234,7 +245,10 @@ model KycAuditLogEntry {
   eventType        KycAuditEventType
   /// Populated for VERIFICATION_ATTEMPT rows only.
   verificationType String?
-  /// Populated for VERIFICATION_ATTEMPT rows only.
+  /// PASSED/FAILED for VERIFICATION_ATTEMPT rows. Reused for
+  /// SANCTIONS_SCREENING rows: PASSED = screened clean, FAILED = a
+  /// candidate match was found and flagged (see `notes` for which
+  /// watchlist entries) — not that the screening process itself failed.
   outcome          KycAuditOutcome?
   /// Populated for VERIFICATION_ATTEMPT rows where outcome is FAILED.
   failureReason    String?
@@ -243,16 +257,38 @@ model KycAuditLogEntry {
   /// Populated for TIER_CHANGE rows only.
   newTier          KycTier?
   /// Non-null only for staff-performed actions (Phase 5b manual
-  /// override) — null means the user's own self-service action.
+  /// override, Phase 4 sanctions-flag clearing) — null means an
+  /// automated/self-service event.
   performedByUserId String?
-  /// Staff justification for a manual override; null for routine
-  /// self-service entries.
+  /// Staff justification for a manual override or flag clearance, or
+  /// (for SANCTIONS_SCREENING rows) which watchlist entries matched.
+  /// Null for routine self-service entries.
   notes            String?
   createdAt        DateTime          @default(now())
 
   @@index([userId])
   @@index([kycProfileId])
   @@map("kyc_audit_log")
+}
+
+/// Seeded reference data for sanctions/PEP screening (Phase 4 of
+/// modules/compliance/implementation.md) — individuals only, from the
+/// free public OFAC SDN list (see infrastructure/prisma/data/README.md
+/// for provenance/refresh notes). `source` future-proofs for adding
+/// other lists later without a schema change.
+model SanctionsListEntry {
+  id           String   @id @default(uuid())
+  source       String
+  /// The source list's own identifier (OFAC's ent_num) — not globally unique alone, only unique per source.
+  externalId   String
+  fullName     String
+  program      String?
+  remarks      String?
+  createdAt    DateTime @default(now())
+
+  @@unique([source, externalId])
+  @@index([source])
+  @@map("sanctions_list_entries")
 }
 
 /// DB-configurable per-tier transfer/balance limits (Phase 1 of

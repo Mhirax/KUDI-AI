@@ -1,6 +1,7 @@
 import { KycProfile } from './kyc-profile.entity';
 import { KycTier } from '../enums/kyc-tier.enum';
 import { VerificationAlreadyPassedException } from '../exceptions/verification-already-passed.exception';
+import { SanctionsFlagNotOpenException } from '../exceptions/sanctions-flag-not-open.exception';
 
 describe('KycProfile aggregate', () => {
   it('starts at TIER_1 and emits KycProfileCreatedEvent', () => {
@@ -55,5 +56,64 @@ describe('KycProfile aggregate', () => {
     expect(() => profile.recordBvnVerified('hash-xyz', '*******9999')).toThrow(
       VerificationAlreadyPassedException,
     );
+  });
+
+  describe('sanctions flag (Phase 4)', () => {
+    it('opens a flag and emits KycProfileFlaggedForSanctionsReviewEvent', () => {
+      const profile = KycProfile.createDefault('user-1');
+      profile.pullDomainEvents();
+
+      profile.flagForSanctionsReview('AL ZAWAHIRI, Dr. Ayman (SDGT)');
+
+      expect(profile.isCurrentlyFlaggedForSanctions).toBe(true);
+      expect(profile.sanctionsFlaggedAt).not.toBeNull();
+      expect(profile.sanctionsClearedAt).toBeNull();
+      const events = profile.pullDomainEvents();
+      expect(events.map((e) => e.eventName)).toEqual(['compliance.kyc_profile.sanctions_flagged']);
+    });
+
+    it('does not re-flag or emit a second event if already flagged', () => {
+      const profile = KycProfile.createDefault('user-1');
+      profile.flagForSanctionsReview('first match');
+      const firstFlaggedAt = profile.sanctionsFlaggedAt;
+      profile.pullDomainEvents();
+
+      profile.flagForSanctionsReview('second match, same open case');
+
+      expect(profile.sanctionsFlaggedAt).toBe(firstFlaggedAt);
+      expect(profile.pullDomainEvents()).toHaveLength(0);
+    });
+
+    it('clears an open flag and emits KycProfileSanctionsFlagClearedEvent', () => {
+      const profile = KycProfile.createDefault('user-1');
+      profile.flagForSanctionsReview('candidate match');
+      profile.pullDomainEvents();
+
+      profile.clearSanctionsFlag('staff-1', 'Confirmed different person after manual review.');
+
+      expect(profile.isCurrentlyFlaggedForSanctions).toBe(false);
+      expect(profile.sanctionsClearedAt).not.toBeNull();
+      const events = profile.pullDomainEvents();
+      expect(events.map((e) => e.eventName)).toEqual(['compliance.kyc_profile.sanctions_flag_cleared']);
+    });
+
+    it('throws SanctionsFlagNotOpenException when clearing with no open flag', () => {
+      const profile = KycProfile.createDefault('user-1');
+      expect(() => profile.clearSanctionsFlag('staff-1', 'nothing to clear')).toThrow(
+        SanctionsFlagNotOpenException,
+      );
+    });
+
+    it('re-opening after a clear creates a new flag', () => {
+      const profile = KycProfile.createDefault('user-1');
+      profile.flagForSanctionsReview('first match');
+      profile.clearSanctionsFlag('staff-1', 'cleared, false positive');
+      profile.pullDomainEvents();
+
+      profile.flagForSanctionsReview('second, unrelated match');
+
+      expect(profile.isCurrentlyFlaggedForSanctions).toBe(true);
+      expect(profile.sanctionsClearedAt).toBeNull();
+    });
   });
 });

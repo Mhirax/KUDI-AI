@@ -7,7 +7,10 @@ import { ManuallyVerifyNinHandler } from '../manually-verify-nin/manually-verify
 import { ManuallyVerifyNinCommand } from '../manually-verify-nin/manually-verify-nin.command';
 import { PrismaKycProfileRepository } from '../../../infrastructure/persistence/prisma-kyc-profile.repository';
 import { PrismaKycAuditLogRepository } from '../../../infrastructure/persistence/prisma-kyc-audit-log.repository';
+import { PrismaSanctionsListRepository } from '../../../infrastructure/persistence/prisma-sanctions-list.repository';
 import { KycAuditRecorderService } from '../../services/kyc-audit-recorder.service';
+import { SanctionsScreeningService } from '../../services/sanctions-screening.service';
+import { OfacSanctionsScreeningProvider } from '../../../infrastructure/services/ofac-sanctions-screening.service';
 import { IUserRepository } from '../../../../identity/domain/repositories/user.repository.interface';
 import { User } from '../../../../identity/domain/entities/user.entity';
 import { IIdentityVerificationProvider } from '../../../domain/services/identity-verification-provider.interface';
@@ -37,6 +40,15 @@ describe('Manual KYC verification override (integration)', () => {
   const auditLogRepository = new PrismaKycAuditLogRepository(prisma);
   const auditRecorder = new KycAuditRecorderService(auditLogRepository);
   const fakeEventBus = { publish: () => undefined } as unknown as EventBus;
+  // Real sanctions screening against the actual seeded OFAC list — this
+  // test's fixture names ("Registered Name" etc.) aren't on it, so it's
+  // a harmless real check, not something worth stubbing out.
+  const sanctionsScreening = new SanctionsScreeningService(
+    new OfacSanctionsScreeningProvider(new PrismaSanctionsListRepository(prisma)),
+    kycProfileRepository,
+    auditLogRepository,
+    fakeEventBus,
+  );
 
   const createdUserIds: string[] = [];
 
@@ -94,6 +106,7 @@ describe('Manual KYC verification override (integration)', () => {
       stubUserRepository('Registered', 'Name'),
       stubVerificationProvider(false, 'Totally Different Name'),
       auditRecorder,
+      sanctionsScreening,
       fakeEventBus,
     );
 
@@ -130,6 +143,7 @@ describe('Manual KYC verification override (integration)', () => {
       stubUserRepository('Registered', 'Name'),
       stubVerificationProvider(true, 'Registered Name'),
       auditRecorder,
+      sanctionsScreening,
       fakeEventBus,
     );
 
@@ -154,6 +168,7 @@ describe('Manual KYC verification override (integration)', () => {
       stubUserRepository('Registered', 'Name'),
       stubVerificationProvider(false, 'Mismatched Name'),
       auditRecorder,
+      sanctionsScreening,
       fakeEventBus,
     );
 

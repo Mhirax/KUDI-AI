@@ -22,6 +22,7 @@ import { KycTierUpgradedEvent } from '../../../domain/events/kyc-tier-upgraded.e
 import { KycProfileNotFoundException } from '../../../domain/exceptions/kyc-profile-not-found.exception';
 import { KycStatusResponseDto } from '../../dto/kyc-status-response.dto';
 import { KycAuditRecorderService } from '../../services/kyc-audit-recorder.service';
+import { SanctionsScreeningService } from '../../services/sanctions-screening.service';
 
 import {
   USER_REPOSITORY,
@@ -63,6 +64,7 @@ export class ManuallyVerifyBvnHandler
     @Inject(IDENTITY_VERIFICATION_PROVIDER)
     private readonly verificationProvider: IIdentityVerificationProvider,
     private readonly auditRecorder: KycAuditRecorderService,
+    private readonly sanctionsScreening: SanctionsScreeningService,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -108,6 +110,14 @@ export class ManuallyVerifyBvnHandler
     const tierChangeEvents = events.filter((event) => event instanceof KycTierUpgradedEvent);
     await this.auditRecorder.recordDomainEvents(tierChangeEvents);
     events.forEach((event) => this.eventBus.publish(event));
+
+    // Phase 4 — screen the provider-confirmed real name (preferred
+    // over the target's self-reported one: the whole point of a
+    // manual override is that they may differ).
+    await this.sanctionsScreening.screenAndFlag(
+      profile,
+      result.verifiedFullName ?? `${targetUser.firstName} ${targetUser.lastName}`,
+    );
 
     return KycStatusResponseDto.fromDomain(profile);
   }

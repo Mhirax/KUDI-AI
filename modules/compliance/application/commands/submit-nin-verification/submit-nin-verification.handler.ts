@@ -16,6 +16,7 @@ import { KycProfileNotFoundException } from '../../../domain/exceptions/kyc-prof
 import { IdentityMismatchException } from '../../../domain/exceptions/identity-mismatch.exception';
 import { KycStatusResponseDto } from '../../dto/kyc-status-response.dto';
 import { KycAuditRecorderService } from '../../services/kyc-audit-recorder.service';
+import { SanctionsScreeningService } from '../../services/sanctions-screening.service';
 
 import {
   USER_REPOSITORY,
@@ -38,6 +39,7 @@ export class SubmitNinVerificationHandler
     @Inject(IDENTITY_VERIFICATION_PROVIDER)
     private readonly verificationProvider: IIdentityVerificationProvider,
     private readonly auditRecorder: KycAuditRecorderService,
+    private readonly sanctionsScreening: SanctionsScreeningService,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -78,6 +80,9 @@ export class SubmitNinVerificationHandler
     const successEvents = profile.pullDomainEvents();
     await this.auditRecorder.recordDomainEvents(successEvents);
     successEvents.forEach((event) => this.eventBus.publish(event));
+
+    // Phase 4 — see SubmitBvnVerificationHandler's matching comment.
+    await this.sanctionsScreening.screenAndFlag(profile, result.verifiedFullName ?? `${user.firstName} ${user.lastName}`);
 
     return KycStatusResponseDto.fromDomain(profile);
   }

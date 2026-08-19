@@ -12,6 +12,8 @@ export interface IKycProfileRepository {
    * Prisma's transaction client type across this boundary.
    */
   findByUserId(userId: string, tx?: any): Promise<KycProfile | null>;
+  /** The Phase 4 sanctions review queue: every profile with an open flag (flagged, not yet cleared), oldest first. */
+  findAllCurrentlyFlaggedForSanctions(): Promise<KycProfile[]>;
   save(profile: KycProfile): Promise<void>;
 }
 

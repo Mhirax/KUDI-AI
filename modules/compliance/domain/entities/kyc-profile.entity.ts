@@ -2,10 +2,13 @@ import { randomUUID } from 'crypto';
 import { KycTier } from '../enums/kyc-tier.enum';
 import { VerificationType } from '../enums/verification-type.enum';
 import { VerificationAlreadyPassedException } from '../exceptions/verification-already-passed.exception';
+import { SanctionsFlagNotOpenException } from '../exceptions/sanctions-flag-not-open.exception';
 import { KycProfileCreatedEvent } from '../events/kyc-profile-created.event';
 import { VerificationPassedEvent } from '../events/verification-passed.event';
 import { VerificationFailedEvent } from '../events/verification-failed.event';
 import { KycTierUpgradedEvent } from '../events/kyc-tier-upgraded.event';
+import { KycProfileFlaggedForSanctionsReviewEvent } from '../events/kyc-profile-flagged-for-sanctions-review.event';
+import { KycProfileSanctionsFlagClearedEvent } from '../events/kyc-profile-sanctions-flag-cleared.event';
 import { DomainEvent } from '../../../../shared/events/domain-event.base';
 
 export interface KycProfileProps {
@@ -18,6 +21,8 @@ export interface KycProfileProps {
   ninVerifiedAt: Date | null;
   ninHash: string | null;
   ninMasked: string | null;
+  sanctionsFlaggedAt: Date | null;
+  sanctionsClearedAt: Date | null;
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -52,6 +57,8 @@ export class KycProfile {
       ninVerifiedAt: null,
       ninHash: null,
       ninMasked: null,
+      sanctionsFlaggedAt: null,
+      sanctionsClearedAt: null,
       version: 0,
       createdAt: now,
       updatedAt: now,
@@ -118,6 +125,40 @@ export class KycProfile {
     );
   }
 
+  /**
+   * Opens a sanctions-screening flag (Phase 4). A no-op if one is
+   * already open — screening can run more than once (BVN, then NIN)
+   * and must not spam duplicate flags/events for the same open case.
+   * If a *previous* flag was already cleared, a new match reopens one.
+   */
+  flagForSanctionsReview(matchSummary: string): void {
+    if (this.isSanctionsFlagOpen()) {
+      return;
+    }
+    this.props.sanctionsFlaggedAt = new Date();
+    this.props.sanctionsClearedAt = null;
+    this.touch();
+    this.addDomainEvent(
+      new KycProfileFlaggedForSanctionsReviewEvent(this.props.id, this.props.userId, matchSummary),
+    );
+  }
+
+  /** Staff-only action (Phase 5-style surface) — throws if there is no open flag to clear. */
+  clearSanctionsFlag(clearedByStaffUserId: string, reason: string): void {
+    if (!this.isSanctionsFlagOpen()) {
+      throw new SanctionsFlagNotOpenException(this.props.userId);
+    }
+    this.props.sanctionsClearedAt = new Date();
+    this.touch();
+    this.addDomainEvent(
+      new KycProfileSanctionsFlagClearedEvent(this.props.id, this.props.userId, clearedByStaffUserId, reason),
+    );
+  }
+
+  private isSanctionsFlagOpen(): boolean {
+    return this.props.sanctionsFlaggedAt !== null && this.props.sanctionsClearedAt === null;
+  }
+
   private touch(): void {
     this.props.version += 1;
     this.props.updatedAt = new Date();
@@ -159,6 +200,18 @@ export class KycProfile {
 
   get ninMasked(): string | null {
     return this.props.ninMasked;
+  }
+
+  get sanctionsFlaggedAt(): Date | null {
+    return this.props.sanctionsFlaggedAt;
+  }
+
+  get sanctionsClearedAt(): Date | null {
+    return this.props.sanctionsClearedAt;
+  }
+
+  get isCurrentlyFlaggedForSanctions(): boolean {
+    return this.isSanctionsFlagOpen();
   }
 
   get version(): number {

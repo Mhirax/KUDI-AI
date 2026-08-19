@@ -9,14 +9,18 @@ import { SubmitBvnVerificationDto } from '../../application/dto/submit-bvn-verif
 import { SubmitNinVerificationDto } from '../../application/dto/submit-nin-verification.dto';
 import { ManualBvnOverrideDto } from '../../application/dto/manual-bvn-override.dto';
 import { ManualNinOverrideDto } from '../../application/dto/manual-nin-override.dto';
+import { ClearSanctionsFlagDto } from '../../application/dto/clear-sanctions-flag.dto';
 import { KycStatusResponseDto } from '../../application/dto/kyc-status-response.dto';
 import { StaffKycLookupResponseDto } from '../../application/dto/staff-kyc-lookup-response.dto';
+import { FlaggedSanctionsProfileResponseDto } from '../../application/dto/flagged-sanctions-profile-response.dto';
 import { SubmitBvnVerificationCommand } from '../../application/commands/submit-bvn-verification/submit-bvn-verification.command';
 import { SubmitNinVerificationCommand } from '../../application/commands/submit-nin-verification/submit-nin-verification.command';
 import { ManuallyVerifyBvnCommand } from '../../application/commands/manually-verify-bvn/manually-verify-bvn.command';
 import { ManuallyVerifyNinCommand } from '../../application/commands/manually-verify-nin/manually-verify-nin.command';
+import { ClearSanctionsFlagCommand } from '../../application/commands/clear-sanctions-flag/clear-sanctions-flag.command';
 import { GetMyKycStatusQuery } from '../../application/queries/get-my-kyc-status/get-my-kyc-status.query';
 import { GetKycAuditHistoryQuery } from '../../application/queries/get-kyc-audit-history/get-kyc-audit-history.query';
+import { GetFlaggedSanctionsProfilesQuery } from '../../application/queries/get-flagged-sanctions-profiles/get-flagged-sanctions-profiles.query';
 import { AccessTokenPayload } from '../../../identity/application/ports/token.service.interface';
 import { UserRole } from '../../../identity/domain/enums/user-role.enum';
 
@@ -62,6 +66,37 @@ export class KycController {
       this.queryBus.execute(new GetKycAuditHistoryQuery(userId)),
     ]);
     return { status, history };
+  }
+
+  /**
+   * Phase 4b (modules/compliance/implementation.md): the sanctions
+   * review queue — every profile with an open flag, oldest first.
+   * Deliberately returns `FlaggedSanctionsProfileResponseDto`, not
+   * `KycStatusResponseDto` (the shape `GET /kyc/me` also uses) — see
+   * that DTO's header comment for why the flag must never leak into a
+   * customer-facing response.
+   */
+  @Get('staff/sanctions/flagged')
+  @UseGuards(RolesGuard)
+  @Roles(...COMPLIANCE_ROLES)
+  async getFlaggedSanctionsProfiles(): Promise<FlaggedSanctionsProfileResponseDto[]> {
+    return this.queryBus.execute(new GetFlaggedSanctionsProfilesQuery());
+  }
+
+  /**
+   * Phase 4b: resolves an open sanctions flag. Throws if the target
+   * has no open flag — see `ClearSanctionsFlagHandler`'s doc comment.
+   */
+  @Post('staff/:userId/sanctions/clear')
+  @UseGuards(RolesGuard)
+  @Roles(...COMPLIANCE_ROLES)
+  @HttpCode(HttpStatus.OK)
+  async clearSanctionsFlag(
+    @CurrentUser() staff: AccessTokenPayload,
+    @Param('userId') userId: string,
+    @Body() dto: ClearSanctionsFlagDto,
+  ): Promise<KycStatusResponseDto> {
+    return this.commandBus.execute(new ClearSanctionsFlagCommand(staff.sub, userId, dto.reason));
   }
 
   /**

@@ -20,6 +20,14 @@ export class PrismaKycProfileRepository implements IKycProfileRepository {
     return record ? KycProfileMapper.toDomain(record) : null;
   }
 
+  async findAllCurrentlyFlaggedForSanctions(): Promise<KycProfile[]> {
+    const records = await this.prisma.kycProfile.findMany({
+      where: { sanctionsFlaggedAt: { not: null }, sanctionsClearedAt: null },
+      orderBy: { sanctionsFlaggedAt: 'asc' },
+    });
+    return records.map((record) => KycProfileMapper.toDomain(record));
+  }
+
   async save(profile: KycProfile): Promise<void> {
     const data = KycProfileMapper.toPersistence(profile);
     const previousVersion = data.version - 1;

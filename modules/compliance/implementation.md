@@ -57,17 +57,22 @@ re-confirm the real BVN/NIN rather than a bare override; plus
 freeze/unfreeze wired into the same surface, with a role asymmetry
 fixed along the way) are both complete and tested.
 
-**Where we're going next:** Phases 1–3 — the full bar for "responsible
-with real customer money" — are functionally complete, tested, and
-hardened against everything the review found; what's left before all
-three are fully closed is 1a's compliance sign-off and one manual
-click-through pass (covers 1f's and Phase 2's environment-constrained
-gaps in one sitting). Phase 5 is now done, deliberately built ahead of
-Phase 4: Phase 4b's screening logic explicitly routes flagged matches
-to Phase 5's review surface, so it now has somewhere real to route to
-instead of a destination that didn't exist yet. **Phase 4 is next**,
-opening with a vendor/cost decision (which sanctions/PEP watchlist
-provider) that isn't an engineering call to make alone.
+**Phase 4 — sanctions/watchlist screening:** ✅ Done. Screens against a
+seeded snapshot of the free OFAC SDN list (real data, no vendor
+contract — confirmed with the product owner as the right MVP call) on
+every first verification; a match opens a review flag (never an
+auto-block) that routes into Phase 5's existing staff surface — the
+queue endpoint and clear-flag action built here, deliberately kept out
+of any customer-facing response so a flagged user is never tipped off.
+Tested against the real seeded data, not a fabricated fixture.
+
+**Where we're going next:** Phases 1–5 are all functionally complete
+and tested. What's left before Phases 1–3 are fully *closed*, not just
+engineered: 1a's compliance sign-off and one manual click-through pass
+(covers 1f's and Phase 2's environment-constrained gaps in one
+sitting). **Phase 6** (transaction monitoring) is the only phase left
+in this tracker — deliberately last, since it needs real transaction
+volume to tune against, which doesn't exist yet.
 
 ---
 
@@ -165,11 +170,20 @@ Each gets its own commit as it's fixed, so the history traces cleanly.
 *A legal AML/CFT requirement once real money is moving, not optional.*
 
 ### 4a. Source a watchlist
-- [ ] Select/integrate a sanctions or PEP watchlist data source or provider.
+- [x] Confirmed with the product owner (MVP, no overhead): the free public **OFAC SDN list** (US Treasury), not a paid vendor (ComplyAdvantage, Refinitiv World-Check, etc.) and not a stub. Real, legally-recognized data, zero cost, zero vendor contract — see `infrastructure/prisma/data/README.md` for full provenance (source URL, download date, why individuals-only, why this list).
+- [x] Seeded 7,481 individual entries (filtered from 19,203 total — entities/vessels/aircraft excluded, this screens person names) into a new `SanctionsListEntry` table via `infrastructure/prisma/seed-sanctions-list.ts`. Safe to re-run — replaces the whole `source` in one pass, so re-seeding after a fresh download is idempotent.
+- [x] **This is a point-in-time snapshot, not a live feed** — documented explicitly as a deliberate MVP trade-off in the data README, not a silent gap. Refreshing it periodically is a real operational task, not built yet (no cron job).
+- [x] Built as a swappable port — `ISanctionsScreeningProvider` (`domain/services/sanctions-screening-provider.interface.ts`), same shape as `IIdentityVerificationProvider` abstracts Flutterwave. `OfacSanctionsScreeningProvider` is the current implementation; a paid aggregator could replace it later without any application/domain code changing.
 
 ### 4b. Screen and route
-- [ ] Screen new customers during onboarding or first verification.
-- [ ] Match → flag and route to manual review (Phase 5), never a hard silent reject.
+- [x] Screens on **first verification**, not raw registration — called from all four verification paths (`SubmitBvnVerificationHandler`, `SubmitNinVerificationHandler`, and their Phase 5b manual-override mirrors) right after a successful verification, using the provider's confirmed name in preference to the self-reported one. Never screens an unconfirmed/mismatched name — that's not meaningful.
+- [x] Matching is **deliberately permissive, not strict** — the opposite bias from `FlutterwaveVerificationMapper.namesMatch()`'s identity-verification matching. There, a false pass is the dangerous direction (someone else's BVN); here, a false *negative* (missing a real match) is the AML risk, and a false positive just costs a compliance officer a cheap manual dismissal. Token-set matching (order-independent, so "LASTNAME, First Middle" vs "First Last" formatting doesn't matter): a candidate is a hit if *all* of their name tokens appear somewhere in a watchlist entry's tokens. See `OfacSanctionsScreeningProvider`'s header comment for the full reasoning.
+- [x] Match → **flag, never a hard silent reject** — `KycProfile.flagForSanctionsReview()` sets `sanctionsFlaggedAt` (idempotent: re-screening while already flagged doesn't spam duplicate flags/events). The verification itself still succeeds; nothing is auto-blocked or auto-frozen. If a compliance officer later confirms a real hit, Phase 5b's existing `freeze` action is the actual mitigation tool — Phase 4 doesn't need to build a separate blocking mechanism.
+- [x] **Route to manual review** — `GET /kyc/staff/sanctions/flagged` (the queue, oldest first) and `POST /kyc/staff/:userId/sanctions/clear` (resolves an open flag, mandatory reason, staff-attributed) on `KycController`, same `COMPLIANCE_ROLES` gate as the rest of the Phase 5 staff surface. `KycProfile.clearSanctionsFlag()` throws if there's no open flag — can't be called speculatively.
+- [x] **Deliberately kept the flag out of any customer-facing response.** The review queue uses a dedicated `FlaggedSanctionsProfileResponseDto`, not `KycStatusResponseDto` (the shape `GET /kyc/me` also returns) — tipping off the subject of an active sanctions review is the opposite of correct AML/CFT process. `KycStatusResponseDto` was deliberately left untouched.
+- [x] Every screening outcome (clean or matched) and every flag-clear action is written to the existing `kyc_audit_log` table via a new `SANCTIONS_SCREENING` event type — durable and synchronous (same reasoning as the Phase 3/finding-#2 fix: written directly and awaited, not via `EventBus`), reusing the append-only audit trail rather than a parallel table.
+
+**Verified:** `tsc --noEmit` clean, a DI-graph boot of `AppModule`, full unit suite 41/41 (5 new: `KycProfile.flagForSanctionsReview()`/`clearSanctionsFlag()` guard conditions and events), full integration suite 25/25 (7 new in `sanctions-screening.service.integration-spec.ts`) — critically, screening was tested **against the real seeded OFAC data**, not a fabricated fixture list: confirmed a real entry ("AL ZAWAHIRI, Dr. Ayman", program `SDGT`) matches regardless of name-token order, an ordinary unrelated name doesn't match, a single-word name is treated as unscreenable rather than noisy, and the full flag → review-queue → clear flow works end-to-end with correct audit attribution. Confirmed no leftover flagged profiles after the test run.
 
 ## Phase 5 — Manual review surface for compliance staff
 *Right now a user whose name doesn't exactly match the verification provider's response has no path forward.*

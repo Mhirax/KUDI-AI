@@ -16,6 +16,7 @@ import { KycProfileNotFoundException } from '../../../domain/exceptions/kyc-prof
 import { IdentityMismatchException } from '../../../domain/exceptions/identity-mismatch.exception';
 import { KycStatusResponseDto } from '../../dto/kyc-status-response.dto';
 import { KycAuditRecorderService } from '../../services/kyc-audit-recorder.service';
+import { SanctionsScreeningService } from '../../services/sanctions-screening.service';
 
 // Cross-module dependency on Identity's exported port — same pattern
 // as Transfers depending on Accounts' ACCOUNT_REPOSITORY.
@@ -42,6 +43,7 @@ export class SubmitBvnVerificationHandler
     @Inject(IDENTITY_VERIFICATION_PROVIDER)
     private readonly verificationProvider: IIdentityVerificationProvider,
     private readonly auditRecorder: KycAuditRecorderService,
+    private readonly sanctionsScreening: SanctionsScreeningService,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -84,6 +86,13 @@ export class SubmitBvnVerificationHandler
     const successEvents = profile.pullDomainEvents();
     await this.auditRecorder.recordDomainEvents(successEvents);
     successEvents.forEach((event) => this.eventBus.publish(event));
+
+    // Phase 4 (modules/compliance/implementation.md): screen the
+    // now-confirmed real name. Runs after verification succeeds, never
+    // before — screening an unconfirmed/mismatched name isn't
+    // meaningful. Prefers the provider's verified name over the
+    // self-reported one when available.
+    await this.sanctionsScreening.screenAndFlag(profile, result.verifiedFullName ?? `${user.firstName} ${user.lastName}`);
 
     return KycStatusResponseDto.fromDomain(profile);
   }
