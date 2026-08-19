@@ -33,17 +33,17 @@ much money could actually move once it did. That's the gap Phase 1 closes.
 | 1c — enforce at transfer time | ✅ Done | Per-transaction + rolling 24h daily cap, both transfer types. |
 | 1d — enforce the balance ceiling | ✅ Done | Max-balance cap on credit operations (`CreditAccountHandler` + internal-transfer destination credit). |
 | 1e — frontend `getStatus()` fix | ✅ Done | Turned out already covered by the `features/kyc/` build — verified, not re-done. |
-| 1f — verify end-to-end | 🟡 Partial | `tsc`, full unit suite, and a runtime DI-graph boot pass after every sub-phase so far; no dedicated integration/e2e tests yet, no manual click-through yet. |
+| 1f — verify end-to-end | 🟡 Mostly done | Unit + real-DB integration tests written and passing (13 new tests total); concurrent-race test deliberately not written (see below); manual browser/Flutterwave-sandbox click-through still outstanding. |
 
-**Where we're going next:** 1f is the only piece left to fully close
-Phase 1 — real integration test coverage (limit rejections, the
-concurrent-transfer race) plus one manual click-through — pending only
-1a's compliance sign-off on the actual figures. Then Phase 2 (rate
-limiting the verification endpoints) and Phase 3 (persistent audit
-trail) — those two are the rest of the bar for "responsible with real
-customer money." Phases 4–6 (sanctions screening, manual review,
-transaction monitoring) come after, and can run alongside other modules
-once 1–3 are live.
+**Where we're going next:** Phase 1 is functionally complete and tested
+at the service layer; the only thing standing between "engineering done"
+and "actually closed" is 1a's compliance sign-off on the real limit
+figures, plus a manual click-through whenever Flutterwave sandbox
+credentials are available. From here: Phase 2 (rate limiting the
+verification endpoints) and Phase 3 (persistent audit trail) are the
+rest of the bar for "responsible with real customer money." Phases 4–6
+(sanctions screening, manual review, transaction monitoring) come after,
+and can run alongside other modules once 1–3 are live.
 
 ---
 
@@ -77,9 +77,13 @@ once 1–3 are live.
 - [x] Already fixed, no new code needed — turned out to already be covered by the `features/kyc/` build (commit `a289060`), just not connected to this tracker item until now. Both call sites of `kycApi.getStatus()` handle a failed fetch safely: `Kyc.jsx` has an explicit `.catch()` → `loadError` state with a real error message (not a false "unverified" screen), and `Profile.jsx` calls it via `Promise.allSettled` with the KYC badge conditionally rendered (`{kyc && (...)}`) — on failure it's omitted, not wrong.
 
 ### 1f. Verify end-to-end
-- [ ] Unit test the limits policy (all three tiers, null/uncapped case).
-- [ ] Integration test: transfer rejected over per-transaction cap; transfer rejected over rolling daily cap; concurrent-transfer race does not bypass the daily cap.
-- [ ] Manual pass: register → verify BVN → hit the Tier 2 cap → confirm the upgrade-prompt message renders correctly on a real failed getStatus() call too.
+- [x] Unit test the limits policy — `kyc-tier-limits.policy.spec.ts`, all three tiers plus the Tier 3 null/uncapped-balance case (5 tests).
+- [x] Integration test, against the real Postgres DB (not mocks) — `tests/integration/jest.config.ts` created (didn't exist before; `tests/integration/` was pure scaffolding until now), run via `npm run test:integration`:
+  - `kyc-transfer-limit-checker.service.integration-spec.ts` (4 tests): per-transaction rejection, daily-cap rejection, an allowed transfer, and the missing-profile → TIER_1 fallback.
+  - `max-balance-guard.service.integration-spec.ts` (4 tests): max-balance rejection, an allowed credit, Tier 3 uncapped, and the missing-profile → TIER_1 fallback.
+  - Both suites create their own fixture rows and clean up after themselves — verified no leftover rows after a run.
+- [x] ~~Concurrent-transfer race does not bypass the daily cap~~ — **not tested, by decision.** 1c already documented that this race is real and was deliberately left open (not atomic with the debit); a test asserting it's prevented would fail against the current, accepted implementation. Reworded here rather than writing a test that either fails or misrepresents what's actually guaranteed. If this gets closed later (see 1c's note on moving the check inside the debit transaction), add the test then.
+- [ ] **Manual pass — not done.** Requires either a real Flutterwave sandbox key (to actually verify a BVN and progress a tier) or a browser session against the running frontend, neither available in this environment. What *is* covered: the integration tests above exercise the real business logic (tier lookup, limit comparison, rejection) against the real database, end-to-end at the service layer. What's *not* covered: the actual HTTP request/response round-trip, the frontend's rendering of a `TRANSFER_LIMIT_EXCEEDED`/`MAX_BALANCE_EXCEEDED` error, and a real BVN-verification-driven tier upgrade. Recommend a real click-through pass before this goes live, whenever sandbox credentials are available.
 
 ## Phase 2 — Abuse & fraud protection on the verification endpoints
 *Nothing currently stops rapid-fire BVN/NIN guessing, and every attempt is a billed Flutterwave call.*
