@@ -8,7 +8,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
+import { LOGIN_THROTTLE } from '../../../../infrastructure/config/throttler.config';
 import { Public } from '../../../../shared/decorators/public.decorator';
 import { CurrentUser } from '../../../../shared/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../../../gateway/guards/jwt-auth.guard';
@@ -44,6 +46,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(LOGIN_THROTTLE)
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto, @Req() req: Request): Promise<AuthResponseDto> {

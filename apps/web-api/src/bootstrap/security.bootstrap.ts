@@ -2,7 +2,10 @@ import { INestApplication } from '@nestjs/common';
 import helmet from 'helmet';
 
 /**
- * Centralized security bootstrap hook: helmet, CORS, rate limiting, etc.
+ * Centralized security bootstrap hook: helmet and CORS. Rate limiting
+ * is not here — it's `ThrottlerModule`/`ThrottlerGuard` registered in
+ * `AppModule`, with per-route overrides via `@Throttle()` on the
+ * sensitive endpoints (see infrastructure/config/throttler.config.ts).
  *
  * `script-src` allows 'unsafe-inline' so the Swagger UI page (mounted in
  * non-production only, see main.ts) can run its inline bootstrap script.

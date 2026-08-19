@@ -35,15 +35,20 @@ much money could actually move once it did. That's the gap Phase 1 closes.
 | 1e — frontend `getStatus()` fix | ✅ Done | Turned out already covered by the `features/kyc/` build — verified, not re-done. |
 | 1f — verify end-to-end | 🟡 Mostly done | Unit + real-DB integration tests written and passing (13 new tests total); concurrent-race test deliberately not written (see below); manual browser/Flutterwave-sandbox click-through still outstanding. |
 
+**Phase 2 — abuse & fraud protection:** ✅ Done (2a rate limiting, 2b
+cleanup) — see below for what's covered and the one gap (no live HTTP
+smoke test, same environment constraint as 1f).
+
 **Where we're going next:** Phase 1 is functionally complete and tested
 at the service layer; the only thing standing between "engineering done"
 and "actually closed" is 1a's compliance sign-off on the real limit
 figures, plus a manual click-through whenever Flutterwave sandbox
-credentials are available. From here: Phase 2 (rate limiting the
-verification endpoints) and Phase 3 (persistent audit trail) are the
-rest of the bar for "responsible with real customer money." Phases 4–6
-(sanctions screening, manual review, transaction monitoring) come after,
-and can run alongside other modules once 1–3 are live.
+credentials are available — that same click-through would also cover
+Phase 2's outstanding live-smoke-test gap. From here: **Phase 3**
+(persistent audit trail) is next — the last piece of "responsible with
+real customer money." Phases 4–6 (sanctions screening, manual review,
+transaction monitoring) come after, and can run alongside other modules
+once 1–3 are live.
 
 ---
 
@@ -89,12 +94,18 @@ and can run alongside other modules once 1–3 are live.
 *Nothing currently stops rapid-fire BVN/NIN guessing, and every attempt is a billed Flutterwave call.*
 
 ### 2a. Rate limit the sensitive endpoints
-- [ ] Rate limit `/kyc/verify-bvn` and `/kyc/verify-nin`.
-- [ ] Rate limit `/auth/login` (same underlying gap — see `docs/AUDIT.md` §4.3).
-- [ ] Decide and document actual thresholds + lockout/backoff behavior (not just "add a guard").
+- [x] Installed `@nestjs/throttler` (v6.5.0) — wasn't a dependency before. Registered globally in all three apps' `AppModule` (`ThrottlerModule.forRoot()` + `ThrottlerGuard` via `APP_GUARD`, ahead of `JwtAuthGuard` so abusive requests are rejected before auth work happens).
+- [x] Rate limit `/kyc/verify-bvn` and `/kyc/verify-nin` — `@Throttle(KYC_VERIFICATION_THROTTLE)` on both.
+- [x] Rate limit `/auth/login` — `@Throttle(LOGIN_THROTTLE)` (same underlying gap flagged in `docs/AUDIT.md` §4.3, now closed).
+- [x] Decided and documented actual thresholds, in `infrastructure/config/throttler.config.ts`:
+  - Global baseline (everything else): 100 requests/minute per IP.
+  - `/auth/login`: 5 attempts/minute per IP, then a 5-minute lockout (`blockDuration`). Worth knowing: account-level lockout-on-repeated-failure is currently *disabled* in code (`User.recordFailedLogin()`'s header comment) — so until that's revisited, this IP-based throttle is the only defense `/auth/login` has against brute-forcing.
+  - `/kyc/verify-bvn` / `/kyc/verify-nin`: 3 attempts/10 minutes per IP, then a 30-minute lockout — tighter, since each attempt is a billed Flutterwave call and a guess against an 11-digit identity number.
+  - Tracked by IP via in-memory storage (the library default) — correct for today's single-instance setup; would need Redis-backed storage (`infrastructure/redis`, currently unused) if these apps ever run multiple instances behind a load balancer. Documented in the config file itself.
+  - Not done: a live HTTP-level smoke test (start the server, actually hit `/auth/login` 6 times, confirm the 6th is rejected) — the same environment constraint as 1f's manual pass (no way to keep a background dev server alive reliably here). Verified instead via `tsc`, a full DI-graph boot of all three apps (confirms the guard wires and instantiates without error), and that `@nestjs/throttler` is a mature, widely-used library — the residual risk is lower than for custom-written logic, but a real click-through/curl pass is still recommended before this is trusted in production.
 
 ### 2b. Cleanup
-- [ ] Remove the dead `BVN_VERIFICATION_API_KEY` / `NIN_VERIFICATION_API_KEY` vars — already absent from `.env.example`, still present in local `.env`; superseded by `FLUTTERWAVE_SECRET_KEY`.
+- [x] Removed the dead `BVN_VERIFICATION_API_KEY` / `NIN_VERIFICATION_API_KEY` lines from the local `.env` (already absent from `.env.example`; not git-tracked either way, so nothing to commit here). Left `BILLER_API_KEY` alone — same "unused placeholder" shape, but out of this phase's explicit scope; worth the same cleanup whenever billing is actually touched.
 
 ## Phase 3 — Persistent, queryable audit trail
 *Verification/tier-change events currently exist only as transient `EventBus` events — nothing durable to answer "prove this user was properly verified."*

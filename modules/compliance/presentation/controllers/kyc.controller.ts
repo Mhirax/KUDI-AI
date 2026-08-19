@@ -1,5 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { Throttle } from '@nestjs/throttler';
+import { KYC_VERIFICATION_THROTTLE } from '../../../../infrastructure/config/throttler.config';
 import { CurrentUser } from '../../../../shared/decorators/current-user.decorator';
 import { SubmitBvnVerificationDto } from '../../application/dto/submit-bvn-verification.dto';
 import { SubmitNinVerificationDto } from '../../application/dto/submit-nin-verification.dto';
@@ -21,6 +23,7 @@ export class KycController {
     return this.queryBus.execute(new GetMyKycStatusQuery(user.sub));
   }
 
+  @Throttle(KYC_VERIFICATION_THROTTLE)
   @Post('verify-bvn')
   @HttpCode(HttpStatus.OK)
   async verifyBvn(
@@ -30,6 +33,7 @@ export class KycController {
     return this.commandBus.execute(new SubmitBvnVerificationCommand(user.sub, dto.bvn));
   }
 
+  @Throttle(KYC_VERIFICATION_THROTTLE)
   @Post('verify-nin')
   @HttpCode(HttpStatus.OK)
   async verifyNin(
