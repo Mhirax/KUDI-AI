@@ -32,16 +32,18 @@ much money could actually move once it did. That's the gap Phase 1 closes.
 | 1b — build the config mechanism | ✅ Done | `KycTierLimit` DB table + repository, replacing hardcoded figures. |
 | 1c — enforce at transfer time | ✅ Done | Per-transaction + rolling 24h daily cap, both transfer types. |
 | 1d — enforce the balance ceiling | ✅ Done | Max-balance cap on credit operations (`CreditAccountHandler` + internal-transfer destination credit). |
-| 1e — frontend `getStatus()` fix | ⬜ Not started | |
+| 1e — frontend `getStatus()` fix | ✅ Done | Turned out already covered by the `features/kyc/` build — verified, not re-done. |
 | 1f — verify end-to-end | 🟡 Partial | `tsc`, full unit suite, and a runtime DI-graph boot pass after every sub-phase so far; no dedicated integration/e2e tests yet, no manual click-through yet. |
 
-**Where we're going next:** finish 1e (small, standalone) and 1f (real
-test coverage + a manual pass), which closes out Phase 1 pending only 1a's
-compliance sign-off. Then Phase 2 (rate limiting the verification
-endpoints) and Phase 3 (persistent audit trail) — those two are the rest
-of the bar for "responsible with real customer money." Phases 4–6
-(sanctions screening, manual review, transaction monitoring) come after,
-and can run alongside other modules once 1–3 are live.
+**Where we're going next:** 1f is the only piece left to fully close
+Phase 1 — real integration test coverage (limit rejections, the
+concurrent-transfer race) plus one manual click-through — pending only
+1a's compliance sign-off on the actual figures. Then Phase 2 (rate
+limiting the verification endpoints) and Phase 3 (persistent audit
+trail) — those two are the rest of the bar for "responsible with real
+customer money." Phases 4–6 (sanctions screening, manual review,
+transaction monitoring) come after, and can run alongside other modules
+once 1–3 are live.
 
 ---
 
@@ -72,7 +74,7 @@ and can run alongside other modules once 1–3 are live.
   - Not yet covered: there is no funding/deposit module in this codebase yet (frontend's `funding.js` has no live backend endpoint) — whenever that's built, it must credit through `CreditAccountHandler` or another path that also calls `MAX_BALANCE_GUARD`, or this ceiling will have a hole.
 
 ### 1e. Frontend fix (bundled here since you're already touching this status path)
-- [ ] Fix `kyc.js`'s `getStatus()` — missing `.catch()` lets a failed fetch render a verified user as unverified (see `docs/AUDIT.md` §3).
+- [x] Already fixed, no new code needed — turned out to already be covered by the `features/kyc/` build (commit `a289060`), just not connected to this tracker item until now. Both call sites of `kycApi.getStatus()` handle a failed fetch safely: `Kyc.jsx` has an explicit `.catch()` → `loadError` state with a real error message (not a false "unverified" screen), and `Profile.jsx` calls it via `Promise.allSettled` with the KYC badge conditionally rendered (`{kyc && (...)}`) — on failure it's omitted, not wrong.
 
 ### 1f. Verify end-to-end
 - [ ] Unit test the limits policy (all three tiers, null/uncapped case).
