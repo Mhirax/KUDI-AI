@@ -32,9 +32,10 @@ depend on earlier ones.
 - Not yet done: nothing calls `KYC_TIER_LIMIT_REPOSITORY` yet — that's 1c/1d.
 
 ### 1c. Enforce at transfer time
-- [ ] Enforce the per-transaction limit in `modules/transfers`.
-- [ ] Enforce the rolling 24h daily transfer limit. Must be checked atomically with the debit (same transaction) — two concurrent transfers each individually under the cap can otherwise combine to blow past it.
-- [ ] Reject over-limit transfers with a clear message ("upgrade your verification to send more"), not a silent failure.
+- [x] Enforce the per-transaction limit in `modules/transfers` — `KycTransferLimitCheckerService` (`modules/transfers/infrastructure/services/kyc-transfer-limit-checker.service.ts`), called from both `InitiateInternalTransferHandler` and `InitiateExternalTransferHandler` before the debit.
+- [x] Enforce the rolling 24h daily transfer limit — `ITransferRepository.sumSourceAmountSince()` sums SUCCESSFUL/PROCESSING transfers in the last 24h.
+  - **Not fully atomic with the debit** — the sum-check and the debit are separate reads/writes, not inside one DB transaction. Two transfers submitted concurrently, each individually under the cap, could in principle combine to exceed it before either commits. Documented in the service's header comment. Acceptable for a foundation build with no real concurrent load; revisit before this matters in production (e.g. move the check inside `PrismaInternalTransferExecutor`'s existing `$transaction`, or serialize on the source account).
+- [x] Reject over-limit transfers with a clear message via `TransferLimitExceededException` (422, code `TRANSFER_LIMIT_EXCEEDED`) — "Upgrade your verification to send more."
 
 ### 1d. Enforce the balance ceiling
 - [ ] Enforce a max-balance ceiling per tier on credit operations in `modules/accounts`.

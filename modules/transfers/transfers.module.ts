@@ -10,12 +10,14 @@ import { TRANSFER_REPOSITORY } from './domain/repositories/transfer.repository.i
 import { FEE_CALCULATOR } from './domain/services/fee-calculator.interface';
 import { EXTERNAL_PAYOUT_PROVIDER } from './domain/services/external-payout-provider.interface';
 import { INTERNAL_TRANSFER_EXECUTOR } from './domain/services/internal-transfer-executor.interface';
+import { KYC_TRANSFER_LIMIT_CHECKER } from './domain/services/kyc-transfer-limit-checker.interface';
 
 // Infrastructure adapters (this module)
 import { PrismaTransferRepository } from './infrastructure/persistence/prisma-transfer.repository';
 import { FlatRateFeeCalculator } from './infrastructure/services/flat-rate-fee-calculator.service';
 import { FlutterwavePayoutProvider } from './infrastructure/services/flutterwave-payout-provider.service';
 import { PrismaInternalTransferExecutor } from './infrastructure/services/prisma-internal-transfer-executor.service';
+import { KycTransferLimitCheckerService } from './infrastructure/services/kyc-transfer-limit-checker.service';
 
 // Flutterwave integration adapter (shared HTTP client for this module's use)
 import { FLUTTERWAVE_TRANSFER_CLIENT } from '../../integrations/payment-gateway/flutterwave/transfers/flutterwave-transfer.port';
@@ -36,6 +38,11 @@ import { FlutterwaveTransferWebhookController } from './presentation/controllers
 // which this module's handlers and executor consume via DI.
 import { AccountsModule } from '../accounts/accounts.module';
 
+// Cross-module dependency: ComplianceModule exports KYC_PROFILE_REPOSITORY
+// and KYC_TIER_LIMIT_REPOSITORY, consumed by KycTransferLimitCheckerService
+// (Phase 1c of modules/compliance/implementation.md).
+import { ComplianceModule } from '../compliance/compliance.module';
+
 const commandHandlers = [
   InitiateInternalTransferHandler,
   InitiateExternalTransferHandler,
@@ -48,12 +55,14 @@ const queryHandlers = [GetTransferByReferenceHandler, ListMyTransfersHandler];
  * Transfers bounded-context module.
  *
  * Imports `AccountsModule` to consume its exported `ACCOUNT_REPOSITORY`
- * token — the only sanctioned cross-module dependency, made through a
- * published port rather than Accounts' internals. The one deliberate
- * exception is `PrismaInternalTransferExecutor`, which imports
- * Accounts' `Account` entity and `AccountMapper` directly to achieve
- * cross-aggregate transactional atomicity; see that file's header
- * comment.
+ * token and `ComplianceModule` to consume its exported
+ * `KYC_PROFILE_REPOSITORY`/`KYC_TIER_LIMIT_REPOSITORY` tokens — both
+ * sanctioned cross-module dependencies, made through published ports
+ * rather than reaching into either module's internals. The one
+ * deliberate exception is `PrismaInternalTransferExecutor`, which
+ * imports Accounts' `Account` entity and `AccountMapper` directly to
+ * achieve cross-aggregate transactional atomicity; see that file's
+ * header comment.
  */
 @Module({
   imports: [
@@ -61,6 +70,7 @@ const queryHandlers = [GetTransferByReferenceHandler, ListMyTransfersHandler];
     ConfigModule.forFeature(flutterwaveConfig),
     HttpModule,
     AccountsModule,
+    ComplianceModule,
   ],
   controllers: [TransfersController, FlutterwaveTransferWebhookController],
   providers: [
@@ -70,6 +80,7 @@ const queryHandlers = [GetTransferByReferenceHandler, ListMyTransfersHandler];
     { provide: FEE_CALCULATOR, useClass: FlatRateFeeCalculator },
     { provide: EXTERNAL_PAYOUT_PROVIDER, useClass: FlutterwavePayoutProvider },
     { provide: INTERNAL_TRANSFER_EXECUTOR, useClass: PrismaInternalTransferExecutor },
+    { provide: KYC_TRANSFER_LIMIT_CHECKER, useClass: KycTransferLimitCheckerService },
     { provide: FLUTTERWAVE_TRANSFER_CLIENT, useClass: FlutterwaveTransferAdapter },
   ],
   exports: [TRANSFER_REPOSITORY],

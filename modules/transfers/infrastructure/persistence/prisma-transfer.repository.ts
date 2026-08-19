@@ -5,6 +5,9 @@ import { Transfer } from '../../domain/entities/transfer.entity';
 import { TransferReference } from '../../domain/value-objects/transfer-reference.vo';
 import { TransferMapper } from '../mappers/transfer.mapper';
 import { DomainException } from '../../../../shared/exceptions/domain.exception';
+import { Money } from '../../../../shared/value-objects/money.vo';
+import { Currency } from '../../../../shared/enums/currency.enum';
+import { TransactionStatus } from '../../../../shared/enums/transaction-status.enum';
 
 @Injectable()
 export class PrismaTransferRepository implements ITransferRepository {
@@ -55,5 +58,17 @@ export class PrismaTransferRepository implements ITransferRepository {
         'CONCURRENT_MODIFICATION',
       );
     }
+  }
+
+  async sumSourceAmountSince(sourceAccountId: string, since: Date, currency: Currency): Promise<Money> {
+    const result = await this.prisma.transfer.aggregate({
+      where: {
+        sourceAccountId,
+        status: { in: [TransactionStatus.SUCCESSFUL, TransactionStatus.PROCESSING] },
+        createdAt: { gte: since },
+      },
+      _sum: { amountMinorUnits: true },
+    });
+    return Money.fromMinorUnits(result._sum.amountMinorUnits ?? 0n, currency);
   }
 }

@@ -10,6 +10,10 @@ import {
   IExternalPayoutProvider,
 } from '../../../domain/services/external-payout-provider.interface';
 import {
+  KYC_TRANSFER_LIMIT_CHECKER,
+  IKycTransferLimitChecker,
+} from '../../../domain/services/kyc-transfer-limit-checker.interface';
+import {
   TRANSFER_REPOSITORY,
   ITransferRepository,
 } from '../../../domain/repositories/transfer.repository.interface';
@@ -50,6 +54,7 @@ export class InitiateExternalTransferHandler
     @Inject(ACCOUNT_REPOSITORY) private readonly accountRepository: IAccountRepository,
     @Inject(TRANSFER_REPOSITORY) private readonly transferRepository: ITransferRepository,
     @Inject(FEE_CALCULATOR) private readonly feeCalculator: IFeeCalculator,
+    @Inject(KYC_TRANSFER_LIMIT_CHECKER) private readonly kycLimitChecker: IKycTransferLimitChecker,
     @Inject(EXTERNAL_PAYOUT_PROVIDER) private readonly payoutProvider: IExternalPayoutProvider,
     private readonly eventBus: EventBus,
   ) {}
@@ -64,6 +69,13 @@ export class InitiateExternalTransferHandler
     }
 
     const amount = Money.fromDecimalString(command.amount, sourceAccount.currency);
+
+    await this.kycLimitChecker.assertWithinLimits({
+      userId: command.initiatorUserId,
+      sourceAccountId: command.sourceAccountId,
+      amount,
+    });
+
     const fee = await this.feeCalculator.calculate(amount, TransferType.EXTERNAL);
     const totalDebit = amount.add(fee);
 

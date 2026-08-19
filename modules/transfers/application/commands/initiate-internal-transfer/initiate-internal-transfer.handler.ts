@@ -6,6 +6,10 @@ import {
   IInternalTransferExecutor,
 } from '../../../domain/services/internal-transfer-executor.interface';
 import { FEE_CALCULATOR, IFeeCalculator } from '../../../domain/services/fee-calculator.interface';
+import {
+  KYC_TRANSFER_LIMIT_CHECKER,
+  IKycTransferLimitChecker,
+} from '../../../domain/services/kyc-transfer-limit-checker.interface';
 import { SelfTransferNotAllowedException } from '../../../domain/exceptions/self-transfer-not-allowed.exception';
 import { TransferType } from '../../../domain/enums/transfer-type.enum';
 import { Money } from '../../../../../shared/value-objects/money.vo';
@@ -36,6 +40,7 @@ export class InitiateInternalTransferHandler
   constructor(
     @Inject(ACCOUNT_REPOSITORY) private readonly accountRepository: IAccountRepository,
     @Inject(FEE_CALCULATOR) private readonly feeCalculator: IFeeCalculator,
+    @Inject(KYC_TRANSFER_LIMIT_CHECKER) private readonly kycLimitChecker: IKycTransferLimitChecker,
     @Inject(INTERNAL_TRANSFER_EXECUTOR) private readonly executor: IInternalTransferExecutor,
     private readonly eventBus: EventBus,
   ) {}
@@ -51,6 +56,13 @@ export class InitiateInternalTransferHandler
     }
 
     const amount = Money.fromDecimalString(command.amount, sourceAccount.currency);
+
+    await this.kycLimitChecker.assertWithinLimits({
+      userId: command.initiatorUserId,
+      sourceAccountId: command.sourceAccountId,
+      amount,
+    });
+
     const fee = await this.feeCalculator.calculate(amount, TransferType.INTERNAL);
 
     const result = await this.executor.execute({
