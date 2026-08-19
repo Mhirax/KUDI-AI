@@ -41,8 +41,8 @@ smoke test, same environment constraint as 1f).
 
 **Phase 3 — persistent, queryable audit trail:** ✅ Done (3a persist,
 3b expose internally) — every verification attempt and tier change is
-now durably recorded and queryable per-user; not yet reachable over
-HTTP by design, pending Phase 5's access control.
+now durably recorded and queryable per-user, and now actually
+reachable over HTTP too (see Phase 5a below).
 
 **Post-implementation review:** after Phases 1–3 first landed, a deep
 technical review (see the findings table right below) surfaced 5
@@ -50,17 +50,24 @@ issues — including one real security bug in the internal-transfer
 limit check. **All 5 are now fixed**, each in its own traced commit.
 Nothing outstanding from that review remains open.
 
+**Phase 5 — manual review surface:** 🟡 In progress. 5a (staff-only
+lookup — profile status + full audit history in one call) is done. 5b
+(manual approve/override for failed verifications, plus wiring
+freeze/unfreeze into the same surface) is next, pending one design
+decision on the override mechanism — see the note in that phase's
+section before implementing it further.
+
 **Where we're going next:** Phases 1–3 — the full bar for "responsible
-with real customer money" — are now functionally complete, tested, and
-hardened against everything the review found. What's left before *all
-three* are fully closed, not just engineered: 1a's compliance sign-off
-on the real limit figures, and one manual click-through pass (covers
-1f's gap and Phase 2's live-smoke-test gap in one sitting, whenever
-Flutterwave sandbox credentials are available). From here: **Phase 4**
-(sanctions/watchlist screening) and **Phase 5** (manual review surface
-— which also finally exposes 3b's query over HTTP) can run in parallel
-with other modules, per this tracker's original "Definition of done"
-below.
+with real customer money" — are functionally complete, tested, and
+hardened against everything the review found; what's left before all
+three are fully closed is 1a's compliance sign-off and one manual
+click-through pass (covers 1f's and Phase 2's environment-constrained
+gaps in one sitting). Phase 5 is underway now, chosen ahead of Phase 4
+deliberately: Phase 4b's screening logic explicitly routes flagged
+matches to Phase 5's review surface, so building 5 first gives 4
+somewhere real to route to instead of a destination that doesn't exist
+yet. Phase 4 also opens with a vendor/cost decision (which sanctions/
+PEP watchlist provider) that isn't an engineering call to make alone.
 
 ---
 
@@ -168,7 +175,8 @@ Each gets its own commit as it's fixed, so the history traces cleanly.
 *Right now a user whose name doesn't exactly match the verification provider's response has no path forward.*
 
 ### 5a. Staff-facing lookup (depends on Phase 3's audit trail existing)
-- [ ] Internal (staff-only) endpoint/screen to look up a user's KYC profile and history.
+- [x] `GET /kyc/staff/:userId` (`KycController.getStaffLookup`) — role-gated to `COMPLIANCE_OFFICER`/`ADMIN`/`SUPER_ADMIN` via `RolesGuard`/`@Roles()`, same pattern `AccountsController` already uses for its admin-only routes. Combines two existing queries (no new query logic needed): `GetMyKycStatusQuery` (profile/tier status — reused as-is, just called with the target `userId` instead of the caller's own) and `GetKycAuditHistoryQuery` (Phase 3b — this is the first thing that actually calls it over HTTP, the role gate it was waiting on). Returns both as `StaffKycLookupResponseDto`.
+- Verified: `tsc` clean, a DI-graph boot of `AppModule`, full unit suite 36/36 still passing. No new controller-level test — matches this codebase's existing test posture (`docs/AUDIT.md` §4.5: zero controller/e2e tests anywhere yet, not something to newly introduce just for this one route); both underlying queries are already covered (audit history at the integration level, status query already in production use via `GET /kyc/me`).
 
 ### 5b. Manual actions
 - [ ] Manual approve/override for near-miss identity mismatches — the exact-match design in `FlutterwaveVerificationMapper.namesMatch()` already anticipates this fallback, see its header comment.
