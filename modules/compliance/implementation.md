@@ -39,16 +39,21 @@ much money could actually move once it did. That's the gap Phase 1 closes.
 cleanup) — see below for what's covered and the one gap (no live HTTP
 smoke test, same environment constraint as 1f).
 
-**Where we're going next:** Phase 1 is functionally complete and tested
-at the service layer; the only thing standing between "engineering done"
-and "actually closed" is 1a's compliance sign-off on the real limit
-figures, plus a manual click-through whenever Flutterwave sandbox
-credentials are available — that same click-through would also cover
-Phase 2's outstanding live-smoke-test gap. From here: **Phase 3**
-(persistent audit trail) is next — the last piece of "responsible with
-real customer money." Phases 4–6 (sanctions screening, manual review,
-transaction monitoring) come after, and can run alongside other modules
-once 1–3 are live.
+**Phase 3 — persistent, queryable audit trail:** ✅ Done (3a persist,
+3b expose internally) — every verification attempt and tier change is
+now durably recorded and queryable per-user; not yet reachable over
+HTTP by design, pending Phase 5's access control.
+
+**Where we're going next:** Phases 1–3 — the full bar for "responsible
+with real customer money" — are now functionally complete and tested.
+What's left before *all three* are fully closed, not just engineered:
+1a's compliance sign-off on the real limit figures, and one manual
+click-through pass (covers 1f's gap and Phase 2's live-smoke-test gap
+in one sitting, whenever Flutterwave sandbox credentials are
+available). From here: **Phase 4** (sanctions/watchlist screening) and
+**Phase 5** (manual review surface — which also finally exposes 3b's
+query over HTTP) can run in parallel with other modules, per this
+tracker's original "Definition of done" below.
 
 ---
 
@@ -111,12 +116,14 @@ once 1–3 are live.
 *Verification/tier-change events currently exist only as transient `EventBus` events — nothing durable to answer "prove this user was properly verified."*
 
 ### 3a. Design and persist
-- [ ] Design an audit log schema: who, action, result, timestamp, linked KYC profile.
-- [ ] Persist on every verification attempt (pass and fail, not just pass).
-- [ ] Persist on every tier change.
+- [x] Designed the audit log schema — `KycAuditLogEntry` (`infrastructure/prisma/schema.prisma`, table `kyc_audit_log`): who (`userId`, `kycProfileId`), what (`eventType`: `VERIFICATION_ATTEMPT` | `TIER_CHANGE`), result (`outcome`/`failureReason` for attempts, `previousTier`/`newTier` for tier changes), timestamp (`createdAt`). Append-only — no `version`, no update path, rows are never mutated.
+- [x] Persists on every verification attempt, pass and fail — `RecordVerificationAuditHandler` (`application/event-handlers/record-verification-audit.handler.ts`) subscribes to both `VerificationPassedEvent` and `VerificationFailedEvent`, which the command handlers already publish before returning (even on the failure path, before the exception is thrown) — see `submit-bvn-verification.handler.ts`.
+- [x] Persists on every tier change — `RecordTierChangeAuditHandler` (`application/event-handlers/record-tier-change-audit.handler.ts`) subscribes to `KycTierUpgradedEvent`. That event only carries the *new* tier (it's a public contract Accounts also consumes, so its shape wasn't changed) — `previousTier` is derived from `newTier`, safe only because progression is strictly linear today (TIER_2 always comes from TIER_1, TIER_3 always from TIER_2). Documented in the handler; revisit if tier progression ever stops being linear.
 
 ### 3b. Expose it
-- [ ] Add an internal query for a single user's full KYC history — this is the data source Phase 5's staff-facing screen will read from, so get the shape right here.
+- [x] `GetKycAuditHistoryQuery`/`GetKycAuditHistoryHandler` (`application/queries/get-kyc-audit-history/`) — returns one user's full history, oldest first. **Not yet exposed over HTTP** — deliberately deferred to Phase 5, which builds the staff-only role-gating this query needs before it's reachable by anyone; wiring it to a route without that gate first would be a real access-control gap, not a shortcut worth taking. The query itself takes a bare `userId` with no caller-identity check of its own — noted in its own header comment as a "must only be reached through an already-authorized surface" constraint.
+
+**Verified:** `tsc --noEmit` clean, full unit suite 36/36 passing, a DI-graph boot of `AppModule` confirming the new event handlers and query wire correctly, and a real-DB integration suite (5 new tests in `kyc-audit-trail.integration-spec.ts`) proving: a pass is recorded correctly, a failure is recorded with its reason, a two-step tier change (TIER_1→2→3) derives `previousTier` correctly at each step, the history query returns entries oldest-first, and an unknown user returns an empty history. Confirmed no leftover rows after the run.
 
 ## Phase 4 — Sanctions / watchlist screening
 *A legal AML/CFT requirement once real money is moving, not optional.*

@@ -211,6 +211,44 @@ model KycProfile {
   @@map("kyc_profiles")
 }
 
+// Mirrors modules/compliance/domain/enums/kyc-audit-event-type.enum.ts
+enum KycAuditEventType {
+  VERIFICATION_ATTEMPT
+  TIER_CHANGE
+}
+
+// Mirrors modules/compliance/domain/enums/kyc-audit-outcome.enum.ts
+enum KycAuditOutcome {
+  PASSED
+  FAILED
+}
+
+/// Append-only compliance audit trail (Phase 3 of
+/// modules/compliance/implementation.md) — durable answer to "prove
+/// this user was properly verified", which transient EventBus events
+/// alone can't provide. Rows are never updated or deleted.
+model KycAuditLogEntry {
+  id               String            @id @default(uuid())
+  userId           String
+  kycProfileId     String
+  eventType        KycAuditEventType
+  /// Populated for VERIFICATION_ATTEMPT rows only.
+  verificationType String?
+  /// Populated for VERIFICATION_ATTEMPT rows only.
+  outcome          KycAuditOutcome?
+  /// Populated for VERIFICATION_ATTEMPT rows where outcome is FAILED.
+  failureReason    String?
+  /// Populated for TIER_CHANGE rows only.
+  previousTier     KycTier?
+  /// Populated for TIER_CHANGE rows only.
+  newTier          KycTier?
+  createdAt        DateTime          @default(now())
+
+  @@index([userId])
+  @@index([kycProfileId])
+  @@map("kyc_audit_log")
+}
+
 /// DB-configurable per-tier transfer/balance limits (Phase 1 of
 /// modules/compliance/implementation.md). One row per tier; a missing
 /// row falls back to the in-code defaults in

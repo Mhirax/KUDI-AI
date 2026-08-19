@@ -1,0 +1,4 @@
+export enum KycAuditEventType {
+  VERIFICATION_ATTEMPT = 'VERIFICATION_ATTEMPT',
+  TIER_CHANGE = 'TIER_CHANGE',
+}

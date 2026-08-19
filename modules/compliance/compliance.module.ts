@@ -8,11 +8,13 @@ import flutterwaveConfig from '../../infrastructure/config/flutterwave.config';
 // Domain ports
 import { KYC_PROFILE_REPOSITORY } from './domain/repositories/kyc-profile.repository.interface';
 import { KYC_TIER_LIMIT_REPOSITORY } from './domain/repositories/kyc-tier-limit.repository.interface';
+import { KYC_AUDIT_LOG_REPOSITORY } from './domain/repositories/kyc-audit-log.repository.interface';
 import { IDENTITY_VERIFICATION_PROVIDER } from './domain/services/identity-verification-provider.interface';
 
 // Infrastructure adapters (this module)
 import { PrismaKycProfileRepository } from './infrastructure/persistence/prisma-kyc-profile.repository';
 import { PrismaKycTierLimitRepository } from './infrastructure/persistence/prisma-kyc-tier-limit.repository';
+import { PrismaKycAuditLogRepository } from './infrastructure/persistence/prisma-kyc-audit-log.repository';
 import { FlutterwaveIdentityVerificationProvider } from './infrastructure/services/flutterwave-identity-verification-provider.service';
 
 // Flutterwave integration adapter
@@ -23,7 +25,10 @@ import { FlutterwaveVerificationAdapter } from '../../integrations/payment-gatew
 import { SubmitBvnVerificationHandler } from './application/commands/submit-bvn-verification/submit-bvn-verification.handler';
 import { SubmitNinVerificationHandler } from './application/commands/submit-nin-verification/submit-nin-verification.handler';
 import { GetMyKycStatusHandler } from './application/queries/get-my-kyc-status/get-my-kyc-status.handler';
+import { GetKycAuditHistoryHandler } from './application/queries/get-kyc-audit-history/get-kyc-audit-history.handler';
 import { UserRegisteredHandler } from './application/event-handlers/user-registered.handler';
+import { RecordVerificationAuditHandler } from './application/event-handlers/record-verification-audit.handler';
+import { RecordTierChangeAuditHandler } from './application/event-handlers/record-tier-change-audit.handler';
 
 // Presentation
 import { KycController } from './presentation/controllers/kyc.controller';
@@ -34,8 +39,8 @@ import { KycController } from './presentation/controllers/kyc.controller';
 import { IdentityModule } from '../identity/identity.module';
 
 const commandHandlers = [SubmitBvnVerificationHandler, SubmitNinVerificationHandler];
-const queryHandlers = [GetMyKycStatusHandler];
-const eventHandlers = [UserRegisteredHandler];
+const queryHandlers = [GetMyKycStatusHandler, GetKycAuditHistoryHandler];
+const eventHandlers = [UserRegisteredHandler, RecordVerificationAuditHandler, RecordTierChangeAuditHandler];
 
 /**
  * Compliance/KYC bounded-context module.
@@ -59,6 +64,7 @@ const eventHandlers = [UserRegisteredHandler];
     ...eventHandlers,
     { provide: KYC_PROFILE_REPOSITORY, useClass: PrismaKycProfileRepository },
     { provide: KYC_TIER_LIMIT_REPOSITORY, useClass: PrismaKycTierLimitRepository },
+    { provide: KYC_AUDIT_LOG_REPOSITORY, useClass: PrismaKycAuditLogRepository },
     { provide: IDENTITY_VERIFICATION_PROVIDER, useClass: FlutterwaveIdentityVerificationProvider },
     { provide: FLUTTERWAVE_VERIFICATION_CLIENT, useClass: FlutterwaveVerificationAdapter },
   ],
