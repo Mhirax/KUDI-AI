@@ -210,3 +210,21 @@ model KycProfile {
   @@index([tier])
   @@map("kyc_profiles")
 }
+
+/// DB-configurable per-tier transfer/balance limits (Phase 1 of
+/// modules/compliance/implementation.md). One row per tier; a missing
+/// row falls back to the in-code defaults in
+/// modules/compliance/domain/policies/kyc-tier-limits.policy.ts.
+model KycTierLimit {
+  tier     KycTier @id
+  currency String  @default("NGN")
+  /// Minor units (kobo). `null` means no cap.
+  perTransactionLimit BigInt?
+  /// Minor units (kobo), rolling 24h window. `null` means no cap.
+  dailyTransferLimit  BigInt?
+  /// Minor units (kobo). `null` means no cap.
+  maxBalance          BigInt?
+  updatedAt           DateTime @updatedAt
+
+  @@map("kyc_tier_limits")
+}

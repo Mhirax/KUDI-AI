@@ -7,10 +7,12 @@ import flutterwaveConfig from '../../infrastructure/config/flutterwave.config';
 
 // Domain ports
 import { KYC_PROFILE_REPOSITORY } from './domain/repositories/kyc-profile.repository.interface';
+import { KYC_TIER_LIMIT_REPOSITORY } from './domain/repositories/kyc-tier-limit.repository.interface';
 import { IDENTITY_VERIFICATION_PROVIDER } from './domain/services/identity-verification-provider.interface';
 
 // Infrastructure adapters (this module)
 import { PrismaKycProfileRepository } from './infrastructure/persistence/prisma-kyc-profile.repository';
+import { PrismaKycTierLimitRepository } from './infrastructure/persistence/prisma-kyc-tier-limit.repository';
 import { FlutterwaveIdentityVerificationProvider } from './infrastructure/services/flutterwave-identity-verification-provider.service';
 
 // Flutterwave integration adapter
@@ -56,9 +58,12 @@ const eventHandlers = [UserRegisteredHandler];
     ...queryHandlers,
     ...eventHandlers,
     { provide: KYC_PROFILE_REPOSITORY, useClass: PrismaKycProfileRepository },
+    { provide: KYC_TIER_LIMIT_REPOSITORY, useClass: PrismaKycTierLimitRepository },
     { provide: IDENTITY_VERIFICATION_PROVIDER, useClass: FlutterwaveIdentityVerificationProvider },
     { provide: FLUTTERWAVE_VERIFICATION_CLIENT, useClass: FlutterwaveVerificationAdapter },
   ],
-  exports: [KYC_PROFILE_REPOSITORY],
+  // KYC_TIER_LIMIT_REPOSITORY is exported so Transfers/Accounts can read
+  // limits directly when Phase 1c/1d wire in enforcement.
+  exports: [KYC_PROFILE_REPOSITORY, KYC_TIER_LIMIT_REPOSITORY],
 })
 export class ComplianceModule {}

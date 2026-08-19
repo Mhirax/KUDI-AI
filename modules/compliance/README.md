@@ -77,3 +77,8 @@ fully wired, mounted in `apps/mobile-api`, `apps/web-api`, and
 `apps/admin-api`. The Flutterwave Verification integration
 (`/integrations/payment-gateway/flutterwave/verification`) is now
 implemented for real, not scaffolded.
+
+Verification and account-activation are done. What's left to make this a
+complete compliance function (tier-based limits, rate limiting, audit
+trail, sanctions screening, manual review, transaction monitoring) is
+tracked phase-by-phase in [`implementation.md`](implementation.md).
