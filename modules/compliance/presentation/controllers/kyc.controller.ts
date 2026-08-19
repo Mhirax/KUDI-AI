@@ -7,10 +7,14 @@ import { Roles } from '../../../../shared/decorators/roles.decorator';
 import { RolesGuard } from '../../../../gateway/guards/roles.guard';
 import { SubmitBvnVerificationDto } from '../../application/dto/submit-bvn-verification.dto';
 import { SubmitNinVerificationDto } from '../../application/dto/submit-nin-verification.dto';
+import { ManualBvnOverrideDto } from '../../application/dto/manual-bvn-override.dto';
+import { ManualNinOverrideDto } from '../../application/dto/manual-nin-override.dto';
 import { KycStatusResponseDto } from '../../application/dto/kyc-status-response.dto';
 import { StaffKycLookupResponseDto } from '../../application/dto/staff-kyc-lookup-response.dto';
 import { SubmitBvnVerificationCommand } from '../../application/commands/submit-bvn-verification/submit-bvn-verification.command';
 import { SubmitNinVerificationCommand } from '../../application/commands/submit-nin-verification/submit-nin-verification.command';
+import { ManuallyVerifyBvnCommand } from '../../application/commands/manually-verify-bvn/manually-verify-bvn.command';
+import { ManuallyVerifyNinCommand } from '../../application/commands/manually-verify-nin/manually-verify-nin.command';
 import { GetMyKycStatusQuery } from '../../application/queries/get-my-kyc-status/get-my-kyc-status.query';
 import { GetKycAuditHistoryQuery } from '../../application/queries/get-kyc-audit-history/get-kyc-audit-history.query';
 import { AccessTokenPayload } from '../../../identity/application/ports/token.service.interface';
@@ -46,6 +50,42 @@ export class KycController {
       this.queryBus.execute(new GetKycAuditHistoryQuery(userId)),
     ]);
     return { status, history };
+  }
+
+  /**
+   * Phase 5b (modules/compliance/implementation.md): clears a failed
+   * automated BVN name-match by re-running the real provider lookup
+   * and skipping only that gate — see `ManuallyVerifyBvnHandler`'s
+   * header comment for the full rationale. `reason` is mandatory and
+   * becomes part of the durable audit record, not just a UI label.
+   */
+  @Post('staff/:userId/verify-bvn')
+  @UseGuards(RolesGuard)
+  @Roles(...COMPLIANCE_ROLES)
+  @HttpCode(HttpStatus.OK)
+  async manuallyVerifyBvn(
+    @CurrentUser() staff: AccessTokenPayload,
+    @Param('userId') userId: string,
+    @Body() dto: ManualBvnOverrideDto,
+  ): Promise<KycStatusResponseDto> {
+    return this.commandBus.execute(
+      new ManuallyVerifyBvnCommand(staff.sub, userId, dto.bvn, dto.reason),
+    );
+  }
+
+  /** Mirrors `manuallyVerifyBvn` for NIN — see that handler's doc comment. */
+  @Post('staff/:userId/verify-nin')
+  @UseGuards(RolesGuard)
+  @Roles(...COMPLIANCE_ROLES)
+  @HttpCode(HttpStatus.OK)
+  async manuallyVerifyNin(
+    @CurrentUser() staff: AccessTokenPayload,
+    @Param('userId') userId: string,
+    @Body() dto: ManualNinOverrideDto,
+  ): Promise<KycStatusResponseDto> {
+    return this.commandBus.execute(
+      new ManuallyVerifyNinCommand(staff.sub, userId, dto.nin, dto.reason),
+    );
   }
 
   @Throttle(KYC_VERIFICATION_THROTTLE)

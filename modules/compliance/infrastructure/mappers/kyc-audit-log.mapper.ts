@@ -17,6 +17,8 @@ export class KycAuditLogMapper {
       failureReason: record.failureReason,
       previousTier: record.previousTier as KycTier | null,
       newTier: record.newTier as KycTier | null,
+      performedByUserId: record.performedByUserId,
+      notes: record.notes,
       createdAt: record.createdAt,
     });
   }
@@ -33,6 +35,8 @@ export class KycAuditLogMapper {
       failureReason: props.failureReason,
       previousTier: props.previousTier,
       newTier: props.newTier,
+      performedByUserId: props.performedByUserId,
+      notes: props.notes,
       createdAt: props.createdAt,
     };
   }

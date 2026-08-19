@@ -242,6 +242,12 @@ model KycAuditLogEntry {
   previousTier     KycTier?
   /// Populated for TIER_CHANGE rows only.
   newTier          KycTier?
+  /// Non-null only for staff-performed actions (Phase 5b manual
+  /// override) — null means the user's own self-service action.
+  performedByUserId String?
+  /// Staff justification for a manual override; null for routine
+  /// self-service entries.
+  notes            String?
   createdAt        DateTime          @default(now())
 
   @@index([userId])

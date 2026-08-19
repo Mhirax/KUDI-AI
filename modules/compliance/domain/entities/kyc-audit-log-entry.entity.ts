@@ -14,16 +14,24 @@ export interface KycAuditLogEntryProps {
   failureReason: string | null;
   previousTier: KycTier | null;
   newTier: KycTier | null;
+  /** Non-null only for staff-performed actions (Phase 5b manual override) — null means the user's own self-service action. */
+  performedByUserId: string | null;
+  /** Staff justification for a manual override; null for routine self-service entries. */
+  notes: string | null;
   createdAt: Date;
 }
 
 /**
  * KycAuditLogEntry — an append-only fact record, not a mutable
  * aggregate. Unlike `KycProfile`/`Transfer`, it never changes after
- * creation and never raises its own domain events; it *is* the durable
- * record of a `VerificationPassedEvent`/`VerificationFailedEvent`/
- * `KycTierUpgradedEvent` that already happened. See the two event
- * handlers in `application/event-handlers/` that create these.
+ * creation and never raises its own domain events. Most rows are the
+ * durable record of a `VerificationPassedEvent`/`VerificationFailedEvent`/
+ * `KycTierUpgradedEvent` that already happened — see
+ * `KycAuditRecorderService`, called directly (not via `EventBus`) by
+ * the command handlers that raise those events. A `VERIFICATION_ATTEMPT`
+ * row can also be written directly by a staff-performed manual
+ * override (Phase 5b, `performedByUserId`/`notes` non-null) rather
+ * than derived from one of those events.
  */
 export class KycAuditLogEntry {
   private constructor(private readonly props: KycAuditLogEntryProps) {}
@@ -35,6 +43,8 @@ export class KycAuditLogEntry {
     outcome: KycAuditOutcome;
     failureReason: string | null;
     occurredAt: Date;
+    performedByUserId?: string | null;
+    notes?: string | null;
   }): KycAuditLogEntry {
     return new KycAuditLogEntry({
       id: randomUUID(),
@@ -46,6 +56,8 @@ export class KycAuditLogEntry {
       failureReason: params.failureReason,
       previousTier: null,
       newTier: null,
+      performedByUserId: params.performedByUserId ?? null,
+      notes: params.notes ?? null,
       createdAt: params.occurredAt,
     });
   }
@@ -67,6 +79,8 @@ export class KycAuditLogEntry {
       failureReason: null,
       previousTier: params.previousTier,
       newTier: params.newTier,
+      performedByUserId: null,
+      notes: null,
       createdAt: params.occurredAt,
     });
   }

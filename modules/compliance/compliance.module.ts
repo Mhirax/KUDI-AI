@@ -26,6 +26,8 @@ import { FlutterwaveVerificationAdapter } from '../../integrations/payment-gatew
 // Application command/query/event handlers/services
 import { SubmitBvnVerificationHandler } from './application/commands/submit-bvn-verification/submit-bvn-verification.handler';
 import { SubmitNinVerificationHandler } from './application/commands/submit-nin-verification/submit-nin-verification.handler';
+import { ManuallyVerifyBvnHandler } from './application/commands/manually-verify-bvn/manually-verify-bvn.handler';
+import { ManuallyVerifyNinHandler } from './application/commands/manually-verify-nin/manually-verify-nin.handler';
 import { GetMyKycStatusHandler } from './application/queries/get-my-kyc-status/get-my-kyc-status.handler';
 import { GetKycAuditHistoryHandler } from './application/queries/get-kyc-audit-history/get-kyc-audit-history.handler';
 import { UserRegisteredHandler } from './application/event-handlers/user-registered.handler';
@@ -39,7 +41,12 @@ import { KycController } from './presentation/controllers/kyc.controller';
 // consume via DI to look up the caller's registered name.
 import { IdentityModule } from '../identity/identity.module';
 
-const commandHandlers = [SubmitBvnVerificationHandler, SubmitNinVerificationHandler];
+const commandHandlers = [
+  SubmitBvnVerificationHandler,
+  SubmitNinVerificationHandler,
+  ManuallyVerifyBvnHandler,
+  ManuallyVerifyNinHandler,
+];
 const queryHandlers = [GetMyKycStatusHandler, GetKycAuditHistoryHandler];
 const eventHandlers = [UserRegisteredHandler];
 
