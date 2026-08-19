@@ -132,7 +132,9 @@ export class InitiateExternalTransferHandler
 
       // Compensate: credit the source account back, then mark the
       // transfer REVERSED rather than merely FAILED, so it's clear the
-      // customer's funds were returned.
+      // customer's funds were returned. Deliberately not run through
+      // MAX_BALANCE_GUARD — see confirm-external-transfer.handler.ts's
+      // matching comment.
       const refreshedSource = await this.accountRepository.findById(command.sourceAccountId);
       if (refreshedSource) {
         refreshedSource.credit(totalDebit, `reversal:${transfer.reference.getValue()}`);

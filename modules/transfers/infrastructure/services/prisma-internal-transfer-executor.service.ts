@@ -22,6 +22,10 @@ import { DomainEvent } from '../../../../shared/events/domain-event.base';
 import { Account } from '../../../accounts/domain/entities/account.entity';
 import { AccountMapper } from '../../../accounts/infrastructure/mappers/account.mapper';
 import { AccountNotFoundException } from '../../../accounts/domain/exceptions/account-not-found.exception';
+import {
+  MAX_BALANCE_GUARD,
+  IMaxBalanceGuard,
+} from '../../../accounts/domain/services/max-balance-guard.interface';
 
 /**
  * Prisma-backed implementation of `IInternalTransferExecutor`.
@@ -48,6 +52,7 @@ export class PrismaInternalTransferExecutor implements IInternalTransferExecutor
   constructor(
     private readonly prisma: PrismaService,
     @Inject(TRANSFER_REPOSITORY) private readonly transferRepository: ITransferRepository,
+    @Inject(MAX_BALANCE_GUARD) private readonly maxBalanceGuard: IMaxBalanceGuard,
   ) {}
 
   async execute(params: {
@@ -98,6 +103,15 @@ export class PrismaInternalTransferExecutor implements IInternalTransferExecutor
         // lands; tracked here only implicitly via Transfer.fee today.
         const totalDebit = params.amount.add(params.fee);
         sourceAccount.debit(totalDebit, transfer.reference.getValue());
+
+        // KYC-tier max-balance ceiling on the destination (Phase 1d of
+        // modules/compliance/implementation.md). Checked here, inside
+        // this transaction and against the just-loaded destinationAccount,
+        // so — unlike the per-transaction/daily checks in
+        // KycTransferLimitCheckerService — this one has no race-condition
+        // caveat: a throw here rolls back the whole transaction via the
+        // catch block below.
+        await this.maxBalanceGuard.assertWithinLimit(destinationAccount, params.amount);
         destinationAccount.credit(params.amount, transfer.reference.getValue());
 
         await this.saveAccountInTransaction(tx, sourceAccount);

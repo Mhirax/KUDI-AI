@@ -18,6 +18,33 @@ depend on earlier ones.
 
 ---
 
+## Status at a glance
+
+**Where we started:** tiers existed only as an on/off switch for account
+activation — verified enough → account works, with no control over how
+much money could actually move once it did. That's the gap Phase 1 closes.
+
+**Where we are now (Phase 1 — tier-based transaction limits):**
+
+| Sub-phase | Status | Notes |
+|---|---|---|
+| 1a — source real limits | 🟡 Open, blocking | Interim defaults seeded and in use; still needs actual compliance/legal sign-off against a primary CBN circular. |
+| 1b — build the config mechanism | ✅ Done | `KycTierLimit` DB table + repository, replacing hardcoded figures. |
+| 1c — enforce at transfer time | ✅ Done | Per-transaction + rolling 24h daily cap, both transfer types. |
+| 1d — enforce the balance ceiling | ✅ Done | Max-balance cap on credit operations (`CreditAccountHandler` + internal-transfer destination credit). |
+| 1e — frontend `getStatus()` fix | ⬜ Not started | |
+| 1f — verify end-to-end | 🟡 Partial | `tsc`, full unit suite, and a runtime DI-graph boot pass after every sub-phase so far; no dedicated integration/e2e tests yet, no manual click-through yet. |
+
+**Where we're going next:** finish 1e (small, standalone) and 1f (real
+test coverage + a manual pass), which closes out Phase 1 pending only 1a's
+compliance sign-off. Then Phase 2 (rate limiting the verification
+endpoints) and Phase 3 (persistent audit trail) — those two are the rest
+of the bar for "responsible with real customer money." Phases 4–6
+(sanctions screening, manual review, transaction monitoring) come after,
+and can run alongside other modules once 1–3 are live.
+
+---
+
 ## Phase 1 — Tier-based transaction limits
 *The core gap: tiers currently only turn an account on/off — they don't yet control how much money can move.*
 
@@ -29,7 +56,6 @@ depend on earlier ones.
 - [x] Limit config now lives in the DB (`KycTierLimit` table, `infrastructure/prisma/schema.prisma`), not env vars — so limits can change without a redeploy.
 - [x] `kyc-tier-limits.policy.ts` is now the defaults/seed source (`getDefaultKycTierLimits()`), read by `PrismaKycTierLimitRepository` (`modules/compliance/infrastructure/persistence/prisma-kyc-tier-limit.repository.ts`) via the new `IKycTierLimitRepository` port. Falls back to the defaults in-memory if a tier has no DB row.
 - [x] `infrastructure/prisma/seed.ts` created (was referenced by `scripts/seed.sh` but didn't exist) and run once — all three tiers seeded and verified against the live DB.
-- Not yet done: nothing calls `KYC_TIER_LIMIT_REPOSITORY` yet — that's 1c/1d.
 
 ### 1c. Enforce at transfer time
 - [x] Enforce the per-transaction limit in `modules/transfers` — `KycTransferLimitCheckerService` (`modules/transfers/infrastructure/services/kyc-transfer-limit-checker.service.ts`), called from both `InitiateInternalTransferHandler` and `InitiateExternalTransferHandler` before the debit.
@@ -38,7 +64,12 @@ depend on earlier ones.
 - [x] Reject over-limit transfers with a clear message via `TransferLimitExceededException` (422, code `TRANSFER_LIMIT_EXCEEDED`) — "Upgrade your verification to send more."
 
 ### 1d. Enforce the balance ceiling
-- [ ] Enforce a max-balance ceiling per tier on credit operations in `modules/accounts`.
+- [x] Enforce a max-balance ceiling per tier on credit operations in `modules/accounts` — `MaxBalanceGuardService` (`modules/accounts/infrastructure/services/max-balance-guard.service.ts`), one shared implementation used by both real credit paths that exist today:
+  - `CreditAccountHandler` (admin-triggered credit, e.g. future funding-webhook path) — checked before `account.credit()`.
+  - `PrismaInternalTransferExecutor`'s destination-account credit — checked **inside** the existing `$transaction`, against the already-loaded destination account, so this one check (unlike 1c's daily-sum check) has no race-condition caveat: a throw here rolls the whole transfer back.
+  - Deliberately **not** applied to the two reversal/compensation credit paths (`initiate-external-transfer.handler.ts`, `confirm-external-transfer.handler.ts`) — those return money the account already held moments earlier, not new inflow, so they can't push a balance past a cap it wasn't already under.
+  - Rejects with `MaxBalanceExceededException` (422, code `MAX_BALANCE_EXCEEDED`) — "Upgrade your verification to hold more."
+  - Not yet covered: there is no funding/deposit module in this codebase yet (frontend's `funding.js` has no live backend endpoint) — whenever that's built, it must credit through `CreditAccountHandler` or another path that also calls `MAX_BALANCE_GUARD`, or this ceiling will have a hole.
 
 ### 1e. Frontend fix (bundled here since you're already touching this status path)
 - [ ] Fix `kyc.js`'s `getStatus()` — missing `.catch()` lets a failed fetch render a verified user as unverified (see `docs/AUDIT.md` §3).

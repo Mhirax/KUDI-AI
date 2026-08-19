@@ -7,10 +7,12 @@ import bankConfig from '../../infrastructure/config/bank.config';
 // Domain ports
 import { ACCOUNT_REPOSITORY } from './domain/repositories/account.repository.interface';
 import { ACCOUNT_NUMBER_GENERATOR } from './domain/services/account-number-generator.interface';
+import { MAX_BALANCE_GUARD } from './domain/services/max-balance-guard.interface';
 
 // Infrastructure adapters
 import { PrismaAccountRepository } from './infrastructure/persistence/prisma-account.repository';
 import { NubanAccountNumberGenerator } from './infrastructure/services/nuban-account-number-generator.service';
+import { MaxBalanceGuardService } from './infrastructure/services/max-balance-guard.service';
 
 // Application command/query handlers
 import { OpenAccountHandler } from './application/commands/open-account/open-account.handler';
@@ -26,6 +28,14 @@ import { KycTierUpgradedHandler } from './application/event-handlers/kyc-tier-up
 
 // Presentation
 import { AccountsController } from './presentation/controllers/accounts.controller';
+
+// Cross-module dependency: ComplianceModule exports KYC_PROFILE_REPOSITORY
+// and KYC_TIER_LIMIT_REPOSITORY, consumed by MaxBalanceGuardService
+// (Phase 1d of modules/compliance/implementation.md). This is a real
+// DI-token dependency (unlike KycTierUpgradedHandler's plain import of
+// Compliance's event class below), so — unlike this module's previous
+// isolation — ComplianceModule must be imported here too.
+import { ComplianceModule } from '../compliance/compliance.module';
 
 const commandHandlers = [
   OpenAccountHandler,
@@ -50,11 +60,18 @@ const eventHandlers = [KycTierUpgradedHandler];
  * depends on Compliance's *published event class* only (a plain import,
  * not a NestJS module import) — see that file's header comment.
  *
+ * `ComplianceModule` *is* a real DI-token dependency, consumed by
+ * `MaxBalanceGuardService` via `KYC_PROFILE_REPOSITORY`/
+ * `KYC_TIER_LIMIT_REPOSITORY`. `MAX_BALANCE_GUARD` is exported so
+ * Transfers' `PrismaInternalTransferExecutor` (which already imports
+ * this module for `ACCOUNT_REPOSITORY`) can reuse the same check when
+ * crediting a destination account, rather than duplicating it.
+ *
  * `DatabaseModule` (global) already provides `PrismaService`; not
  * re-imported here.
  */
 @Module({
-  imports: [CqrsModule, ConfigModule.forFeature(bankConfig)],
+  imports: [CqrsModule, ConfigModule.forFeature(bankConfig), ComplianceModule],
   controllers: [AccountsController],
   providers: [
     ...commandHandlers,
@@ -62,7 +79,8 @@ const eventHandlers = [KycTierUpgradedHandler];
     ...eventHandlers,
     { provide: ACCOUNT_REPOSITORY, useClass: PrismaAccountRepository },
     { provide: ACCOUNT_NUMBER_GENERATOR, useClass: NubanAccountNumberGenerator },
+    { provide: MAX_BALANCE_GUARD, useClass: MaxBalanceGuardService },
   ],
-  exports: [ACCOUNT_REPOSITORY],
+  exports: [ACCOUNT_REPOSITORY, MAX_BALANCE_GUARD],
 })
 export class AccountsModule {}

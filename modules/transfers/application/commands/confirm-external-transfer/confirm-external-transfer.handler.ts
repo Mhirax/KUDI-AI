@@ -61,6 +61,10 @@ export class ConfirmExternalTransferHandler
     }
 
     // Late failure: compensate by crediting the source account back.
+    // Deliberately not run through MAX_BALANCE_GUARD — this returns
+    // money the account already held moments ago, not new inflow, so
+    // it can never itself push the balance past a cap it wasn't
+    // already under.
     const sourceAccount = await this.accountRepository.findById(transfer.sourceAccountId);
     if (sourceAccount) {
       const totalDebit = transfer.amount.add(transfer.fee);

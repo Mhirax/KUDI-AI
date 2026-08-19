@@ -6,9 +6,10 @@
  * Per-tier transaction/balance limits are defined in
  * `../policies/kyc-tier-limits.policy.ts` and enforced by Transfers
  * (per-transaction + rolling 24h daily cap — see
- * `modules/transfers/infrastructure/services/kyc-transfer-limit-checker.service.ts`).
- * Accounts max-balance enforcement is not yet wired in — tracked as
- * Phase 1d in `../../implementation.md`.
+ * `modules/transfers/infrastructure/services/kyc-transfer-limit-checker.service.ts`)
+ * and Accounts (max balance on credit — see
+ * `modules/accounts/infrastructure/services/max-balance-guard.service.ts`).
+ * Phase 1 (`../../implementation.md`) is otherwise complete.
  */
 export enum KycTier {
   TIER_1 = 'TIER_1',

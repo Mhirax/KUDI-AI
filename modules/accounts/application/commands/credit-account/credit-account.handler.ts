@@ -5,6 +5,7 @@ import {
   ACCOUNT_REPOSITORY,
   IAccountRepository,
 } from '../../../domain/repositories/account.repository.interface';
+import { MAX_BALANCE_GUARD, IMaxBalanceGuard } from '../../../domain/services/max-balance-guard.interface';
 import { Money } from '../../../../../shared/value-objects/money.vo';
 import { AccountNotFoundException } from '../../../domain/exceptions/account-not-found.exception';
 import { AccountResponseDto } from '../../dto/account-response.dto';
@@ -21,6 +22,7 @@ export class CreditAccountHandler
 {
   constructor(
     @Inject(ACCOUNT_REPOSITORY) private readonly accountRepository: IAccountRepository,
+    @Inject(MAX_BALANCE_GUARD) private readonly maxBalanceGuard: IMaxBalanceGuard,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -31,6 +33,7 @@ export class CreditAccountHandler
     }
 
     const amount = Money.fromDecimalString(command.amount, command.currency);
+    await this.maxBalanceGuard.assertWithinLimit(account, amount);
     account.credit(amount, command.reference);
 
     await this.accountRepository.save(account);
