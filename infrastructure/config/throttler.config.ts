@@ -15,8 +15,20 @@ import { ThrottlerOptions } from '@nestjs/throttler';
  * attempt back in the instant the 1st attempt ages out.
  */
 
-/** Generic baseline for every route not given a stricter override — 100 requests/minute per IP. */
-export const defaultThrottlerConfig: ThrottlerOptions[] = [{ name: 'default', ttl: 60_000, limit: 100 }];
+/**
+ * Generic baseline for every route not given a stricter override.
+ * `.env.example` already had `RATE_LIMIT_TTL`/`RATE_LIMIT_MAX`
+ * placeholders (100 req/60s) scaffolded for this exact feature before
+ * this phase wired anything up — read here instead of left dead,
+ * defaulting to that same 100 req/60s if unset.
+ */
+export const defaultThrottlerConfig: ThrottlerOptions[] = [
+  {
+    name: 'default',
+    ttl: Number(process.env.RATE_LIMIT_TTL ?? '60') * 1000,
+    limit: Number(process.env.RATE_LIMIT_MAX ?? '100'),
+  },
+];
 
 /**
  * `POST /auth/login` — 5 attempts/minute per IP, then a 5-minute
