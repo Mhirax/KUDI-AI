@@ -66,13 +66,18 @@ queue endpoint and clear-flag action built here, deliberately kept out
 of any customer-facing response so a flagged user is never tipped off.
 Tested against the real seeded data, not a fabricated fixture.
 
-**Where we're going next:** Phases 1–5 are all functionally complete
-and tested. What's left before Phases 1–3 are fully *closed*, not just
-engineered: 1a's compliance sign-off and one manual click-through pass
-(covers 1f's and Phase 2's environment-constrained gaps in one
-sitting). **Phase 6** (transaction monitoring) is the only phase left
-in this tracker — deliberately last, since it needs real transaction
-volume to tune against, which doesn't exist yet.
+**Where we're going next:** the compliance module is considered
+**MVP-complete at Phases 1–5** — confirmed explicitly with the product
+owner on 2026-08-19. **Phase 6** (transaction monitoring) is
+deliberately deferred, not abandoned — noted for later, not planned
+right now: it needs real transaction volume to tune detection rules
+against, which doesn't exist yet, and Phases 4–5 already cover the
+core AML/CFT bases a launch-stage product needs (sanctions screening,
+manual review, freeze capability). What's left before Phases 1–3 are
+fully *closed*, not just engineered: 1a's compliance sign-off and one
+manual click-through pass (covers 1f's and Phase 2's
+environment-constrained gaps in one sitting) — everything else in this
+tracker is done.
 
 ---
 
@@ -205,6 +210,19 @@ Each gets its own commit as it's fixed, so the history traces cleanly.
 ## Phase 6 — Transaction monitoring
 *Ongoing, not onboarding — needs real transaction volume to tune against, so deliberately last.*
 
+**Status: deliberately deferred, not abandoned — noted for later, not planned right now.**
+Decided explicitly (not a scope cut by omission): Phase 6 detects
+*patterns* (rapid sub-threshold transfers, unusual velocity), which
+structurally can't be calibrated well against zero real transaction
+volume — building it now means guessing at thresholds, which either
+floods reviewers with false positives or misses real patterns
+entirely. The core AML/CFT bases for a launch-stage product are
+already covered without it: Phase 4 screens every verified user
+against a real sanctions list, and Phase 5 gives staff a manual review
+queue plus the ability to freeze an account on suspicion. Revisit once
+there's real transaction volume to tune detection rules against — see
+`docs/AUDIT.md`/product roadmap for when that's expected.
+
 ### 6a. Detect
 - [ ] Flag suspicious patterns (rapid sub-threshold transfers, unusual velocity) for review.
 
@@ -218,3 +236,10 @@ Each gets its own commit as it's fixed, so the history traces cleanly.
 Phases 1–3 are the bar for handling real customer money responsibly.
 Phases 4–6 can run in parallel with other modules once Phases 1–3 are live,
 since they matter more at scale than at launch.
+
+**The compliance module is considered MVP-complete at Phases 1–5** (all
+five done, tested, and hardened against a post-implementation review —
+see "Status at a glance" above). Phase 6 is intentionally the one
+open item, deferred until real transaction volume exists to build it
+against — not an oversight, a deliberate call made explicitly with the
+product owner on 2026-08-19.
