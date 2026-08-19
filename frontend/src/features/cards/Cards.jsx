@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cardsApi } from '@/api/cards';
+import { isPendingError } from '@/api/pending';
+import PendingFeature from '@/components/common/PendingFeature';
 import { formatNaira } from '@/utils/format';
 import './Cards.scss';
 
@@ -8,8 +10,14 @@ export default function Cards() {
   const navigate = useNavigate();
   const [cards, setCards]       = useState([]);
   const [isLoading, setLoading] = useState(true);
+  const [isPending, setPending] = useState(false);
 
-  useEffect(() => { cardsApi.getCards().then(setCards).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    cardsApi.getCards()
+      .then(setCards)
+      .catch((err) => { if (isPendingError(err)) setPending(true); })
+      .finally(() => setLoading(false));
+  }, []);
 
   async function handleFreeze(cardId) {
     await cardsApi.freeze(cardId);
@@ -27,6 +35,9 @@ export default function Cards() {
         <div style={{ width: 40 }} />
       </div>
 
+      {isPending ? (
+        <PendingFeature title="Cards" module="cards" />
+      ) : (
       <div className="cards-screen__body">
         {isLoading ? (
           <div className="cards-screen__skeleton" />
@@ -57,6 +68,7 @@ export default function Cards() {
         )}
         <button className="cards-screen__order-btn">+ Order New Card</button>
       </div>
+      )}
     </div>
   );
 }

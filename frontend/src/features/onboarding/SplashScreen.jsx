@@ -16,7 +16,6 @@ export default function SplashScreen() {
       } else {
         navigate('/onboarding');
       }
-      navigate('/dashboard')
     }, 2500);
 
     return () => clearTimeout(timer);

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { billsApi, BILL_CATEGORY } from '@/api/bills';
 import { accountsApi } from '@/api/accounts';
+import { isPendingError } from '@/api/pending';
+import PendingFeature from '@/components/common/PendingFeature';
 import { formatNaira } from '@/utils/format';
 import './Bills.scss';
 
@@ -32,11 +34,17 @@ export default function Bills() {
   const [isLoading, setIsLoading] = useState(false);
   const [result,    setResult]    = useState(null);
   const [error,     setError]     = useState('');
+  const [isPending, setPending]   = useState(false);
 
   useEffect(() => {
     accountsApi.getMyAccounts()
       .then((accounts) => setAccountId(accounts?.[0]?.id ?? null))
       .catch(() => setAccountId(null));
+
+    // Probe the bills module so the screen reflects reality on load rather
+    // than letting the user pick a category first and fail afterwards.
+    billsApi.getBillers(BILL_CATEGORY.AIRTIME)
+      .catch((err) => { if (isPendingError(err)) setPending(true); });
   }, []);
 
   async function handleCategorySelect(cat) {
@@ -45,8 +53,12 @@ export default function Bills() {
     setResult(null);
     setError('');
     setCustomerName('');
-    const list = await billsApi.getBillers(cat.id);
-    setBillers(list);
+    try {
+      setBillers(await billsApi.getBillers(cat.id));
+    } catch (err) {
+      if (isPendingError(err)) setPending(true);
+      else setError(err.message);
+    }
   }
 
   async function handleProviderSelect(biller) {
@@ -55,8 +67,12 @@ export default function Bills() {
     setBundle(null);
     setCustomerName('');
     if (category?.id === BILL_CATEGORY.MOBILE_DATA) {
-      const b = await billsApi.getDataBundles(biller.billerCode);
-      setBundles(b);
+      try {
+        setBundles(await billsApi.getDataBundles(biller.billerCode));
+      } catch (err) {
+        if (isPendingError(err)) setPending(true);
+        else setError(err.message);
+      }
     }
   }
 
@@ -142,6 +158,13 @@ export default function Bills() {
         <div style={{ width: 40 }} />
       </div>
 
+      {isPending ? (
+        <PendingFeature
+          title="Bill payments"
+          module="bills"
+          note="Biller lists and pricing must come from the provider. Showing invented prices for a purchase you are about to make is not acceptable."
+        />
+      ) : (
       <div className="bills__body">
         {!category && (
           <>
@@ -236,6 +259,7 @@ export default function Bills() {
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { accountsApi } from '@/api/accounts';
 import { ledgerApi } from '@/api/ledger';
-import { walletApi } from '@/api/wallet';
+import { savingsApi } from '@/api/savings';
+import { isPendingError } from '@/api/pending';
+import PendingFeature from '@/components/common/PendingFeature';
 import DashboardHeader    from './components/DashboardHeader';
 import BalanceCard        from './components/BalanceCard';
 import QuickActions       from './components/QuickActions';
@@ -9,11 +11,11 @@ import SavingsGoals       from './components/SavingsGoals';
 import RecentTransactions from './components/RecentTransactions';
 import './Dashboard.scss';
 
-// UPDATED — balance and transaction history now come from the real modules:
-//   GET /accounts/me                       -> account (balance is a decimal string)
-//   GET /ledger/accounts/:accountId/entries -> transaction history
-// walletApi.getBalance()/getTransactions() are gone (no such endpoints exist).
-// Savings still has no backend module, so it stays on walletApi's mock data.
+// Balance and account are LIVE (GET /accounts/me).
+// Savings goals and transaction history have no backend module, so they now
+// render an explicit pending state. They previously showed hardcoded figures
+// — a fake ₦80,000 salary credit and fake savings progress — even against the
+// real backend. See docs/AUDIT.md §5.
 
 export default function Dashboard() {
   const [account,      setAccount]      = useState(null);
@@ -22,6 +24,7 @@ export default function Dashboard() {
   const [loading,      setLoading]      = useState({
     account: true, savings: true, transactions: true,
   });
+  const [pending, setPending] = useState({ savings: false, transactions: false });
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -29,12 +32,14 @@ export default function Dashboard() {
   }, []);
 
   async function loadDashboard() {
+    setError(null);
+
     // Accounts must load first — accountId is required for the ledger call.
     const accountsResult = await accountsApi.getMyAccounts().catch(() => null);
     const primaryAccount = accountsResult?.[0] ?? null;
 
     if (!primaryAccount) {
-      setError('Could not load account.');
+      setError('Could not load your account.');
       setLoading({ account: false, savings: false, transactions: false });
       return;
     }
@@ -43,16 +48,20 @@ export default function Dashboard() {
     setLoading((l) => ({ ...l, account: false }));
 
     const [savingsResult, txResult] = await Promise.allSettled([
-      walletApi.getSavings(),
+      savingsApi.getAll(),
       ledgerApi.getAccountEntriesList(primaryAccount.id, { limit: 5 }),
     ]);
 
     if (savingsResult.status === 'fulfilled') {
       setSavings(savingsResult.value);
+    } else if (isPendingError(savingsResult.reason)) {
+      setPending((p) => ({ ...p, savings: true }));
     }
 
     if (txResult.status === 'fulfilled') {
       setTransactions(txResult.value);
+    } else if (isPendingError(txResult.reason)) {
+      setPending((p) => ({ ...p, transactions: true }));
     }
 
     setLoading({ account: false, savings: false, transactions: false });
@@ -69,15 +78,21 @@ export default function Dashboard() {
 
       <QuickActions />
 
-      <SavingsGoals
-        goals={savings}
-        isLoading={loading.savings}
-      />
+      {pending.savings ? (
+        <PendingFeature title="Savings goals" module="savings" />
+      ) : (
+        <SavingsGoals goals={savings} isLoading={loading.savings} />
+      )}
 
-      <RecentTransactions
-        transactions={transactions}
-        isLoading={loading.transactions}
-      />
+      {pending.transactions ? (
+        <PendingFeature
+          title="Transaction history"
+          module="ledger"
+          note="Your balance above is real. There is no ledger yet, so the individual entries behind it cannot be listed."
+        />
+      ) : (
+        <RecentTransactions transactions={transactions} isLoading={loading.transactions} />
+      )}
 
       {error && (
         <div className="dashboard__error">

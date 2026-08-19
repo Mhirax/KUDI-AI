@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authApi } from '@/api/auth';
+import { accountsApi } from '@/api/accounts';
 import { useAuthStore } from '@/store/authStore';
 import AuthLayout from './components/AuthLayout';
 import AuthButton from './components/AuthButton';
@@ -43,6 +44,18 @@ export default function Login() {
       setUser(response.user);
       setToken(response.accessToken);
       setRefreshToken(response.refreshToken);
+
+      // Every user needs at least one account. Create the primary WALLET
+      // silently on first login so Dashboard never hits an empty state.
+      try {
+        const accounts = await accountsApi.getMyAccounts();
+        if (!accounts || accounts.length === 0) {
+          await accountsApi.createAccount({ accountType: 'WALLET' });
+        }
+      } catch (accountErr) {
+        console.error('Account provisioning failed:', accountErr);
+      }
+
       // No OTP, no PIN — go straight to the dashboard.
       navigate('/dashboard', { replace: true });
     } catch (err) {

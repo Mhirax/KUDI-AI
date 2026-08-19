@@ -1,81 +1,22 @@
-import { api } from './client';
+import { pendingEndpoint } from './pending';
 
-const MOCK = import.meta.env.VITE_MOCK_API === 'true';
-const delay = (ms = 600) => new Promise((r) => setTimeout(r, ms));
-
-let MOCK_CARDS = [
-  {
-    id:       'card_001',
-    type:     'virtual',
-    last4:    '3456',
-    balance:  5000000,
-    status:   'active',    // 'active' | 'frozen' | 'expired'
-    expiryMonth: '12',
-    expiryYear:  '26',
-    brand:    'Visa',
-  },
-  {
-    id:       'card_002',
-    type:     'physical',
-    last4:    '7891',
-    balance:  0,
-    status:   'pending',   // being delivered
-    requestedAt: new Date(Date.now() - 432000000).toISOString(),
-    brand:    'Visa',
-  },
-];
+// ─── CARDS API — PENDING ──────────────────────────────────────────────────────
+// No `cards` backend module exists. Two fake cards (including balances and
+// last-4 digits) were previously hardcoded here; that mock data is removed.
+//
+// NOTE ON UNITS: `topUp` was written against a kobo integer. The live
+// convention is major-unit decimal strings — see docs/API-CONTRACT.md.
 
 export const cardsApi = {
-
   // GET /cards
-  getCards: async () => {
-    if (MOCK) {
-      await delay();
-      return [...MOCK_CARDS];
-    }
-    return api.get('/cards');
-  },
+  getCards: pendingEndpoint('cards', 'GET /cards'),
 
   // POST /cards/:id/freeze
-  freeze: async (cardId) => {
-    if (MOCK) {
-      await delay(800);
-      MOCK_CARDS = MOCK_CARDS.map((c) =>
-        c.id === cardId ? { ...c, status: c.status === 'frozen' ? 'active' : 'frozen' } : c
-      );
-      return { success: true };
-    }
-    return api.post('/cards/' + cardId + '/freeze', {});
-  },
+  freeze: pendingEndpoint('cards', 'POST /cards/:id/freeze'),
 
   // POST /cards/request-physical
-  requestPhysical: async () => {
-    if (MOCK) {
-      await delay(1000);
-      const newCard = {
-        id:          'card_' + Date.now(),
-        type:        'physical',
-        last4:       '0000',
-        balance:     0,
-        status:      'pending',
-        requestedAt: new Date().toISOString(),
-        brand:       'Visa',
-      };
-      MOCK_CARDS = [...MOCK_CARDS, newCard];
-      return newCard;
-    }
-    return api.post('/cards/request-physical', {});
-  },
+  requestPhysical: pendingEndpoint('cards', 'POST /cards/request-physical'),
 
   // POST /cards/:id/topup
-  topUp: async (cardId, amountKobo) => {
-    if (MOCK) {
-      await delay(1000);
-      MOCK_CARDS = MOCK_CARDS.map((c) =>
-        c.id === cardId ? { ...c, balance: c.balance + amountKobo } : c
-      );
-      return { success: true };
-    }
-    return api.post('/cards/' + cardId + '/topup', { amountKobo });
-  },
+  topUp: pendingEndpoint('cards', 'POST /cards/:id/topup'),
 };

@@ -1,0 +1,101 @@
+.kyc {
+  min-height: 100vh;
+  background: $kudi-dark;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-5;
+
+    h2 { font-size: $text-lg; font-weight: $weight-bold; color: $white; }
+  }
+
+  &__back {
+    width: 40px; height: 40px;
+    border-radius: $radius-md;
+    background: $kudi-dark-card;
+    border: 1px solid $kudi-dark-border;
+    color: $white;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  &__body { padding: 0 $space-5 $space-8; display: flex; flex-direction: column; gap: $space-5; }
+
+  &__skeleton {
+    margin: $space-5;
+    height: 200px;
+    border-radius: $radius-lg;
+    background: $kudi-dark-card;
+  }
+
+  &__tier-card {
+    background: $gradient-card;
+    border-radius: $radius-xl;
+    padding: $space-5;
+  }
+
+  &__tier-label { font-size: $text-xs; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.8px; }
+  &__tier-value { font-size: $text-2xl; font-weight: $weight-bold; color: $white; margin: $space-1 0 $space-2; }
+  &__tier-hint { font-size: $text-sm; color: rgba(255,255,255,0.85); }
+
+  &__step {
+    background: $kudi-dark-card;
+    border: 1px solid $kudi-dark-border;
+    border-radius: $radius-lg;
+    padding: $space-5;
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+  }
+
+  &__step-header { display: flex; align-items: center; gap: $space-3; }
+
+  &__step-badge {
+    width: 28px; height: 28px;
+    border-radius: $radius-full;
+    background: $kudi-dark-border;
+    color: $gray-400;
+    font-size: $text-sm;
+    font-weight: $weight-semibold;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+
+    &.done { background: $success; color: $white; }
+  }
+
+  &__step-title { font-size: $text-base; font-weight: $weight-semibold; color: $white; }
+
+  &__form { display: flex; flex-direction: column; gap: $space-3; }
+
+  &__input {
+    background: $kudi-dark;
+    border: 1.5px solid $kudi-dark-border;
+    border-radius: $radius-lg;
+    padding: $space-4;
+    color: $white;
+    font-size: $text-base;
+    font-family: inherit;
+    letter-spacing: 1px;
+    width: 100%;
+    &::placeholder { color: $gray-600; letter-spacing: normal; }
+    &:focus { border-color: $kudi-teal; }
+  }
+
+  &__error { font-size: $text-sm; color: $error; }
+
+  &__verified-value { font-size: $text-sm; color: $success; font-weight: $weight-semibold; }
+
+  &__locked-hint { font-size: $text-sm; color: $gray-400; }
+
+  &__btn {
+    width: 100%;
+    padding: $space-4;
+    border-radius: $radius-lg;
+    background: $gradient-brand;
+    color: $white;
+    font-size: $text-base;
+    font-weight: $weight-semibold;
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+  }
+}

@@ -1,12 +1,14 @@
 import { api } from './client';
 
-const MOCK = import.meta.env.VITE_MOCK_API === 'true';
-const delay = (ms = 800) => new Promise((r) => setTimeout(r, ms));
+// ─── TRANSFER API ─────────────────────────────────────────────────────────────
+// LIVE against the transfers module. Amounts are major-unit decimal strings
+// ('1500.00'), never kobo integers. sourceAccountId is required on initiate.
 
-// ── Bank list ──────────────────────────────────────────────────────────────────
-// No GET /transfer/banks (or equivalent) endpoint exists on the backend — this
-// stays a static local list for the RecipientStep dropdown in both mock and
-// real mode.
+// ── Bank list ─────────────────────────────────────────────────────────────────
+// KNOWN GAP: there is no GET /transfers/banks endpoint. This static list is a
+// frontend assumption with no backend contract behind it — bank codes are not
+// validated against the provider until the transfer is initiated.
+// Tracked as mismatch #2 in docs/API-CONTRACT.md.
 export const BANKS = [
   { code: '044', name: 'Access Bank' },
   { code: '023', name: 'Citibank' },
@@ -30,9 +32,7 @@ export const BANKS = [
   { code: '057', name: 'Zenith Bank' },
 ];
 
-// ─── TRANSFER STATUS CONSTANTS ────────────────────────────────────────────────
-// Sourced directly from backend: shared/enums/transaction-status.enum.ts
-// Use these constants everywhere — never type the string manually again.
+// Mirrors shared/enums/transaction-status.enum.ts — never type these manually.
 export const TX_STATUS = {
   PENDING:    'PENDING',
   PROCESSING: 'PROCESSING',
@@ -42,91 +42,52 @@ export const TX_STATUS = {
   CANCELLED:  'CANCELLED',
 };
 
-function mockTransferResponse(overrides = {}) {
-  return {
-    id: 'trf_' + Date.now(),
-    reference: 'KDI_' + Math.random().toString(36).slice(2, 10).toUpperCase(),
-    status: TX_STATUS.PENDING,
-    amount: '0.00',
-    fee: '50.00',
-    createdAt: new Date().toISOString(),
-    ...overrides,
-  };
-}
-
-// ─── TRANSFER API ─────────────────────────────────────────────────────────────
-// UPDATED — no more name-enquiry endpoint (recipient name is typed manually,
-// verified during initiation instead). Amounts are decimal strings, e.g.
-// '1500.00', not kobo integers. sourceAccountId is required on every initiate
-// call.
+// KNOWN GAP: the backend defines IDEMPOTENCY_HEADER = 'x-idempotency-key' in
+// shared/constants/index.ts but no handler reads it. Sending it is therefore
+// currently a no-op — a retried transfer creates a second debit.
 //
-// NOTE FOR NEXT SESSION: only the external (send-to-bank) flow is wired up —
-// it matches what RecipientStep already collects (bank + account number).
-// Internal Kudi-to-Kudi transfer (POST /transfers/internal) needs a
-// destinationAccountId (another user's account UUID), which has no UI yet.
-// initiateInternal() below is implemented and ready, just not called anywhere.
+// Generating the key here (once per call) is also wrong: a genuine retry needs
+// the SAME key as the original attempt. The key must be created once per user
+// intent by the calling screen and passed in. Left as a parameter so the
+// call sites are already shaped correctly when the backend starts honouring it.
+// Tracked as mismatch #1 in docs/API-CONTRACT.md.
+function idempotencyHeaders(idempotencyKey) {
+  return idempotencyKey ? { headers: { 'x-idempotency-key': idempotencyKey } } : {};
+}
 
 export const transferApi = {
 
-  // Static list — see BANKS above. Kept as a method so existing callers
-  // (RecipientStep) don't need to change their import shape.
-  getBanks: async () => {
-    if (MOCK) await delay(300);
-    return BANKS;
-  },
+  // Static list — see BANKS above.
+  getBanks: async () => BANKS,
 
   // POST /transfers/external  (AUTH REQUIRED)
   // Body: { sourceAccountId, bankCode, recipientAccountNumber,
   //         recipientAccountName, amount, narration }
-  initiateExternal: async ({ sourceAccountId, bankCode, recipientAccountNumber, recipientAccountName, amount, narration }) => {
-    if (MOCK) {
-      await delay(1500);
-      if (Math.random() < 0.15) {
-        throw new Error('Transfer could not be initiated. Please try again.');
-      }
-      return mockTransferResponse({ amount, sourceAccountId, recipientAccountNumber, recipientAccountName });
-    }
-    return api.post('/transfers/external', {
-      sourceAccountId, bankCode, recipientAccountNumber, recipientAccountName, amount, narration,
-    }, {
-      headers: { 'x-idempotency-key': crypto.randomUUID() },
-    });
-  },
+  initiateExternal: ({ sourceAccountId, bankCode, recipientAccountNumber, recipientAccountName, amount, narration, idempotencyKey }) =>
+    api.post(
+      '/transfers/external',
+      { sourceAccountId, bankCode, recipientAccountNumber, recipientAccountName, amount, narration },
+      idempotencyHeaders(idempotencyKey),
+    ),
 
   // POST /transfers/internal  (AUTH REQUIRED) — Kudi-to-Kudi, instant.
   // Body: { sourceAccountId, destinationAccountId, amount, narration }
-  // Not yet called from any screen — see note above.
-  initiateInternal: async ({ sourceAccountId, destinationAccountId, amount, narration }) => {
-    if (MOCK) {
-      await delay(800);
-      return mockTransferResponse({ amount, sourceAccountId, destinationAccountId, status: TX_STATUS.SUCCESSFUL, fee: '0.00' });
-    }
-    return api.post('/transfers/internal', { sourceAccountId, destinationAccountId, amount, narration }, {
-      headers: { 'x-idempotency-key': crypto.randomUUID() },
-    });
-  },
+  //
+  // NOT CALLED BY ANY SCREEN. The backend is complete, but there is no UI to
+  // pick a destination Kudi account — that needs a user/account lookup
+  // endpoint which does not exist. Tracked as mismatch #6.
+  initiateInternal: ({ sourceAccountId, destinationAccountId, amount, narration, idempotencyKey }) =>
+    api.post(
+      '/transfers/internal',
+      { sourceAccountId, destinationAccountId, amount, narration },
+      idempotencyHeaders(idempotencyKey),
+    ),
 
-  // GET /transfers/me  (AUTH REQUIRED) — list user's transfers
-  getMyTransfers: async () => {
-    if (MOCK) {
-      await delay(500);
-      return { data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } };
-    }
-    return api.get('/transfers/me');
-  },
+  // GET /transfers/me  (AUTH REQUIRED) — { data, meta }
+  getMyTransfers: () => api.get('/transfers/me'),
 
   // GET /transfers/:reference  (AUTH REQUIRED)
-  // Poll this every 3s for external transfers until status leaves PENDING/PROCESSING.
+  // Poll every 3s for external transfers until status leaves PENDING/PROCESSING.
   // Internal transfers resolve to SUCCESSFUL immediately — no polling needed.
-  getByReference: async (reference) => {
-    if (MOCK) {
-      await delay(1000);
-      const rand = Math.random();
-      if (rand < 0.65) return mockTransferResponse({ reference, status: TX_STATUS.SUCCESSFUL });
-      if (rand < 0.80) return mockTransferResponse({ reference, status: TX_STATUS.PENDING });
-      if (rand < 0.90) return mockTransferResponse({ reference, status: TX_STATUS.PROCESSING });
-      return mockTransferResponse({ reference, status: TX_STATUS.FAILED, reason: 'Insufficient funds in recipient account.' });
-    }
-    return api.get('/transfers/' + reference);
-  },
+  getByReference: (reference) => api.get('/transfers/' + reference),
 };

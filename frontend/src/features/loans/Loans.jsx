@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loansApi } from '@/api/loans';
+import { isPendingError } from '@/api/pending';
+import PendingFeature from '@/components/common/PendingFeature';
 import { formatNaira } from '@/utils/format';
 import './Loans.scss';
 
@@ -11,11 +13,16 @@ export default function Loans() {
   const [selected, setSelected] = useState(null);
   const [amount,  setAmount]  = useState('');
   const [isLoading, setLoading] = useState(false);
+  const [isPending, setPending] = useState(false);
   const [result,  setResult]  = useState(null);
 
   useEffect(() => {
-    loansApi.getOffers().then(setOffers);
-    loansApi.getActive().then(setActive);
+    loansApi.getOffers()
+      .then(setOffers)
+      .catch((err) => { if (isPendingError(err)) setPending(true); });
+    loansApi.getActive()
+      .then(setActive)
+      .catch(() => { /* pending state is driven by getOffers above */ });
   }, []);
 
   async function handleApply() {
@@ -61,6 +68,13 @@ export default function Loans() {
         <div style={{ width: 40 }} />
       </div>
 
+      {isPending ? (
+        <PendingFeature
+          title="Loans"
+          module="loans"
+          note="Loan offers, rates and tenors must come from the backend — showing invented credit terms is a compliance risk, not just a UX one."
+        />
+      ) : (
       <div className="loans-screen__body">
         <p className="loans-screen__section-title">Available Offers</p>
         {offers.map((offer) => (
@@ -94,6 +108,7 @@ export default function Loans() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -1,15 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { rewardsApi } from '@/api/rewards';
+import { isPendingError } from '@/api/pending';
+import PendingFeature from '@/components/common/PendingFeature';
 import './Rewards.scss';
 
 export default function Rewards() {
   const navigate = useNavigate();
   const [data, setData]         = useState(null);
   const [isLoading, setLoading] = useState(true);
+  const [isPending, setPending] = useState(false);
   const [redeeming, setRedeeming] = useState(null);
 
-  useEffect(() => { rewardsApi.getRewards().then(setData).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    rewardsApi.getRewards()
+      .then(setData)
+      .catch((err) => { if (isPendingError(err)) setPending(true); })
+      .finally(() => setLoading(false));
+  }, []);
 
   async function handleRedeem(redemptionId) {
     setRedeeming(redemptionId);
@@ -34,7 +42,9 @@ export default function Rewards() {
         <div style={{ width: 40 }} />
       </div>
 
-      {isLoading ? (
+      {isPending ? (
+        <PendingFeature title="Rewards" module="rewards" />
+      ) : isLoading ? (
         <div style={{ padding: '40px 20px', color: '#9898B0', textAlign: 'center' }}>Loading…</div>
       ) : (
         <div className="rewards-screen__body">

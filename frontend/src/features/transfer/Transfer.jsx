@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { transferApi, TX_STATUS } from '@/api/transfer';
 import { beneficiaryApi } from '@/api/beneficiary';
@@ -26,6 +26,13 @@ export default function Transfer() {
   const [txResult,   setTxResult]   = useState(null);
   const [isLoading,  setIsLoading]  = useState(false);
   const [sourceAccountId, setSourceAccountId] = useState(null);
+
+  // One idempotency key per user intent, NOT per request — a retry of the
+  // same transfer must carry the same key. Reset only when the user starts a
+  // new transfer. The backend does not honour this header yet (see
+  // docs/API-CONTRACT.md mismatch #1); the call site is shaped correctly so
+  // that landing it server-side needs no frontend change.
+  const idempotencyKeyRef = useRef(null);
 
   useEffect(() => {
     accountsApi.getMyAccounts()
@@ -60,6 +67,10 @@ export default function Transfer() {
       // Decimal string amount, not kobo integer.
       const amount = (amountKobo / 100).toFixed(2);
 
+      if (!idempotencyKeyRef.current) {
+        idempotencyKeyRef.current = crypto.randomUUID();
+      }
+
       const result = await transferApi.initiateExternal({
         sourceAccountId,
         bankCode:              recipient.bankCode,
@@ -67,6 +78,7 @@ export default function Transfer() {
         recipientAccountName:   recipient.accountName,
         amount,
         narration: note,
+        idempotencyKey: idempotencyKeyRef.current,
       });
 
       await pollStatus(result.reference, result);

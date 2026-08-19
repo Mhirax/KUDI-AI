@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 
@@ -22,6 +22,7 @@ import Profile    from '@/features/profile/Profile';
 import Transfer   from '@/features/transfer/Transfer';
 import Bills      from '@/features/bills/Bills';
 import Savings    from '@/features/savings/Savings';
+import Kyc        from '@/features/kyc/Kyc';
 
 function ProtectedRoute({ children }) {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
@@ -55,9 +56,38 @@ function AuthExpiredHandler() {
   return null;
 }
 
-export default function AppRouter() {
+// Runs once on app start: if a session was persisted from a previous visit
+// (see authStore's `persist` config), silently exchange the stored
+// refreshToken for a fresh accessToken before any protected route renders —
+// otherwise a reload would show a flash of unauthenticated API calls.
+function useAuthBootstrap() {
+  const [ready, setReady] = useState(false);
+  const bootstrap = useAuthStore((s) => s.bootstrap);
+  const hasRefreshToken = useAuthStore((s) => !!s.refreshToken);
+
+  useEffect(() => {
+    if (!hasRefreshToken) {
+      setReady(true);
+      return;
+    }
+    bootstrap().finally(() => setReady(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return ready;
+}
+
+function AppRoutes() {
+  const ready = useAuthBootstrap();
+
+  if (!ready) {
+    // Session is being silently restored from a previous visit — render
+    // nothing rather than flashing /login before we know the real state.
+    return null;
+  }
+
   return (
-    <BrowserRouter>
+    <>
       <AuthExpiredHandler />
       <Routes>
         <Route path="/"                element={<SplashScreen />} />
@@ -78,10 +108,19 @@ export default function AppRouter() {
           <Route path="bills"     element={<Bills />} />
           <Route path="bills/airtime" element={<Bills />} />
           <Route path="savings"   element={<Savings />} />
+          <Route path="kyc"       element={<Kyc />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+    </>
+  );
+}
+
+export default function AppRouter() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
     </BrowserRouter>
   );
 }

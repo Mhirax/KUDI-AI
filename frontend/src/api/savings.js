@@ -1,62 +1,23 @@
-import { api } from './client';
+import { pendingEndpoint } from './pending';
 
-const MOCK = import.meta.env.VITE_MOCK_API === 'true';
-const delay = (ms = 600) => new Promise((r) => setTimeout(r, ms));
-
-let MOCK_SAVINGS = [
-  { id: 'sav_001', name: 'Emergency Fund', targetKobo: 5000000,  savedKobo: 2000000, frequency: 'daily',   color: '#00D4C8' },
-  { id: 'sav_002', name: 'Vacation',       targetKobo: 10000000, savedKobo: 1000000, frequency: 'weekly',  color: '#7B2FBE' },
-  { id: 'sav_003', name: 'New Laptop',     targetKobo: 30000000, savedKobo: 8000000, frequency: 'monthly', color: '#4A6CF7' },
-];
+// ─── SAVINGS API — PENDING ────────────────────────────────────────────────────
+// No `savings` backend module exists.
+//
+// NOTE ON UNITS: this client was originally written against `targetKobo` /
+// `savedKobo` integer fields. That contradicts every live endpoint, which
+// uses major-unit decimal strings ("1500.00"). When the savings module is
+// built it must follow the live convention — see docs/API-CONTRACT.md.
 
 export const savingsApi = {
-
   // GET /savings
-  getAll: async () => {
-    if (MOCK) {
-      await delay();
-      return [...MOCK_SAVINGS];
-    }
-    return api.get('/savings');
-  },
+  getAll: pendingEndpoint('savings', 'GET /savings'),
 
   // POST /savings
-  create: async (payload) => {
-    if (MOCK) {
-      await delay();
-      const newGoal = {
-        id:          'sav_' + Date.now(),
-        name:        payload.name,
-        targetKobo:  payload.targetKobo,
-        savedKobo:   0,
-        frequency:   payload.frequency,
-        color:       payload.color || '#00D4C8',
-      };
-      MOCK_SAVINGS = [newGoal, ...MOCK_SAVINGS];
-      return newGoal;
-    }
-    return api.post('/savings', payload);
-  },
+  create: pendingEndpoint('savings', 'POST /savings'),
 
   // POST /savings/:id/topup
-  topUp: async (id, amountKobo) => {
-    if (MOCK) {
-      await delay(800);
-      MOCK_SAVINGS = MOCK_SAVINGS.map((s) =>
-        s.id === id ? { ...s, savedKobo: Math.min(s.savedKobo + amountKobo, s.targetKobo) } : s
-      );
-      return { success: true };
-    }
-    return api.post('/savings/' + id + '/topup', { amountKobo });
-  },
+  topUp: pendingEndpoint('savings', 'POST /savings/:id/topup'),
 
   // DELETE /savings/:id
-  remove: async (id) => {
-    if (MOCK) {
-      await delay(400);
-      MOCK_SAVINGS = MOCK_SAVINGS.filter((s) => s.id !== id);
-      return { success: true };
-    }
-    return api.delete('/savings/' + id);
-  },
+  remove: pendingEndpoint('savings', 'DELETE /savings/:id'),
 };

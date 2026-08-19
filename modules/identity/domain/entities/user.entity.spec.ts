@@ -2,7 +2,6 @@ import { User } from './user.entity';
 import { Email } from '../value-objects/email.vo';
 import { PhoneNumber } from '../value-objects/phone-number.vo';
 import { HashedPassword } from '../value-objects/password.vo';
-import { AccountLockedException } from '../exceptions/account-locked.exception';
 import { UserStatus } from '../enums/user-status.enum';
 
 function buildUser(): User {
@@ -23,26 +22,19 @@ describe('User aggregate — login lockout invariant', () => {
     expect(events[0].eventName).toBe('identity.user.registered');
   });
 
-  it('locks the account after 5 consecutive failed login attempts', () => {
+  // Lockout-on-repeated-failure is disabled for now — failed attempts are
+  // still counted, but the account never flips to LOCKED and login is
+  // never blocked because of them.
+  it('does not lock the account no matter how many attempts fail', () => {
     const user = buildUser();
     user.pullDomainEvents(); // discard registration event
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 10; i++) {
       user.recordFailedLogin(null);
     }
     expect(user.status).not.toBe(UserStatus.LOCKED);
-
-    user.recordFailedLogin(null); // 5th attempt
-    expect(user.status).toBe(UserStatus.LOCKED);
-    expect(user.lockedUntil).not.toBeNull();
-  });
-
-  it('rejects further login attempts while locked', () => {
-    const user = buildUser();
-    for (let i = 0; i < 5; i++) {
-      user.recordFailedLogin(null);
-    }
-    expect(() => user.assertCanAttemptLogin()).toThrow(AccountLockedException);
+    expect(user.failedLoginAttempts).toBe(10);
+    expect(() => user.assertCanAttemptLogin()).not.toThrow();
   });
 
   it('resets the failed-attempt counter after a successful login', () => {

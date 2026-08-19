@@ -26,6 +26,7 @@ export function getAccessToken() {
 
 // ── Core client ───────────────────────────────────────────────────────────────
 export async function apiClient(endpoint, options = {}) {
+  const wasAuthenticated = !!accessToken;
   const headers = {
     'Content-Type': 'application/json',
     ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -40,8 +41,13 @@ export async function apiClient(endpoint, options = {}) {
 
   const response = await fetch(`${BASE_URL}${endpoint}`, config);
 
-  // Handle 401 — token expired or invalid
-  if (response.status === 401) {
+  // A 401 on a request that carried a token means that token expired or was
+  // revoked — that's a real session expiry. A 401 on a request with no token
+  // (e.g. POST /auth/login with the wrong password) just means the backend
+  // rejected the credentials, and must fall through to the normal error
+  // handling below so the real backend message reaches the caller instead of
+  // a misleading "session expired".
+  if (response.status === 401 && wasAuthenticated) {
     clearAccessToken();
     // Redirect to login — router will handle this via protected routes
     window.dispatchEvent(new Event('auth:expired'));
@@ -59,8 +65,11 @@ export async function apiClient(endpoint, options = {}) {
   const data = await response.json();
 
   if (!response.ok) {
-    // Use backend's error message if available
-    throw new Error(data.message || `Request failed with status ${response.status}`);
+    // Backend error envelopes are inconsistent: DomainException gives a flat
+    // string `message`, but plain NestJS HttpExceptions (e.g. ServiceUnavailable)
+    // nest it as { message, error, statusCode }. Handle both.
+    const backendMessage = typeof data.message === 'string' ? data.message : data.message?.message;
+    throw new Error(backendMessage || `Request failed with status ${response.status}`);
   }
 
   return data;

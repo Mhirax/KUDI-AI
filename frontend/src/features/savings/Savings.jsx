@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { savingsApi } from '@/api/savings';
+import { isPendingError } from '@/api/pending';
+import PendingFeature from '@/components/common/PendingFeature';
 import { formatNaira } from '@/utils/format';
 import './Savings.scss';
 
@@ -8,10 +10,16 @@ export default function Savings() {
   const navigate = useNavigate();
   const [goals, setGoals]       = useState([]);
   const [isLoading, setLoading] = useState(true);
+  const [isPending, setPending] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newGoal, setNewGoal]   = useState({ name: '', targetKobo: '', frequency: 'monthly' });
 
-  useEffect(() => { savingsApi.getAll().then(setGoals).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    savingsApi.getAll()
+      .then(setGoals)
+      .catch((err) => { if (isPendingError(err)) setPending(true); })
+      .finally(() => setLoading(false));
+  }, []);
 
   async function handleCreate() {
     if (!newGoal.name || !newGoal.targetKobo) return;
@@ -38,9 +46,14 @@ export default function Savings() {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
         <h2>Savings Goals</h2>
-        <button className="savings-screen__add" onClick={() => setShowCreate(true)}>+</button>
+        {isPending
+          ? <div style={{ width: 40 }} />
+          : <button className="savings-screen__add" onClick={() => setShowCreate(true)}>+</button>}
       </div>
 
+      {isPending ? (
+        <PendingFeature title="Savings goals" module="savings" />
+      ) : (
       <div className="savings-screen__body">
         {isLoading ? (
           [1,2,3].map((i) => <div key={i} className="savings-screen__skeleton" />)
@@ -70,6 +83,7 @@ export default function Savings() {
           })
         )}
       </div>
+      )}
 
       {showCreate && (
         <div className="savings-screen__modal-overlay">

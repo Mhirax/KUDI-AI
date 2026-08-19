@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { profileApi } from '@/api/profile';
 import { kycApi } from '@/api/kyc';
 import { accountsApi } from '@/api/accounts';
+import { isPendingError } from '@/api/pending';
+import PendingFeature from '@/components/common/PendingFeature';
 import { useAuthStore } from '@/store/authStore';
 import { formatTransactionTime, formatNairaDecimal } from '@/utils/format';
 import './Profile.scss';
@@ -23,20 +25,25 @@ export default function Profile() {
   const [kyc, setKyc]               = useState(null);
   const [account, setAccount]       = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [notifPending, setNotifPending] = useState(false);
   const [isLoading, setLoading]     = useState(true);
   const [showNotif, setShowNotif]   = useState(false);
 
   useEffect(() => {
-    Promise.all([
+    // allSettled, not all — notifications have no backend module, and a
+    // rejection there must not stop the profile itself from rendering.
+    Promise.allSettled([
       profileApi.getProfile(),
       profileApi.getNotifications(),
-      kycApi.getStatus().catch(() => null),
-      accountsApi.getMyAccounts().catch(() => []),
+      kycApi.getStatus(),
+      accountsApi.getMyAccounts(),
     ]).then(([p, n, k, accounts]) => {
-      setProfile(p);
-      setNotifications(n);
-      setKyc(k);
-      setAccount(accounts?.[0] ?? null);
+      if (p.status === 'fulfilled') setProfile(p.value);
+      if (k.status === 'fulfilled') setKyc(k.value);
+      if (accounts.status === 'fulfilled') setAccount(accounts.value?.[0] ?? null);
+
+      if (n.status === 'fulfilled') setNotifications(n.value);
+      else if (isPendingError(n.reason)) setNotifPending(true);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -76,9 +83,13 @@ export default function Profile() {
             <p>{profile?.email}</p>
             <p>{profile?.phoneNumber}</p>
             {kyc && (
-              <div className="profile-screen__kyc-badge" style={{ background: TIER_COLOR[kyc.tier] + '20', color: TIER_COLOR[kyc.tier] }}>
-                KYC: {TIER_LABEL[kyc.tier] || kyc.tier}
-              </div>
+              <button
+                className="profile-screen__kyc-badge"
+                style={{ background: TIER_COLOR[kyc.tier] + '20', color: TIER_COLOR[kyc.tier] }}
+                onClick={() => navigate('/kyc')}
+              >
+                KYC: {TIER_LABEL[kyc.tier] || kyc.tier} {kyc.tier !== 'TIER_3' && '· Verify →'}
+              </button>
             )}
           </div>
 
@@ -116,8 +127,9 @@ export default function Profile() {
           <div className="profile-screen__modal" onClick={(e) => e.stopPropagation()}>
             <div className="profile-screen__modal-header">
               <h3>Notifications</h3>
-              <button onClick={handleMarkAllRead}>Mark all read</button>
+              {!notifPending && <button onClick={handleMarkAllRead}>Mark all read</button>}
             </div>
+            {notifPending && <PendingFeature title="Notifications" module="notifications" />}
             {notifications.map((n) => (
               <div key={n.id} className={'profile-screen__notif-item' + (!n.read ? ' unread' : '')}>
                 <div className="profile-screen__notif-dot" />

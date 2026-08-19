@@ -1,10 +1,6 @@
 import { DomainException } from '../../../../shared/exceptions/domain.exception';
 
-const MIN_LENGTH = 12;
-const HAS_UPPER = /[A-Z]/;
-const HAS_LOWER = /[a-z]/;
-const HAS_NUMBER = /\d/;
-const HAS_SPECIAL = /[^A-Za-z0-9]/;
+const MIN_LENGTH = 8;
 
 /**
  * PlainPassword Value Object — validates strength rules for a raw,
@@ -19,16 +15,9 @@ export class PlainPassword {
   }
 
   static create(rawPassword: string): PlainPassword {
-    if (
-      !rawPassword ||
-      rawPassword.length < MIN_LENGTH ||
-      !HAS_UPPER.test(rawPassword) ||
-      !HAS_LOWER.test(rawPassword) ||
-      !HAS_NUMBER.test(rawPassword) ||
-      !HAS_SPECIAL.test(rawPassword)
-    ) {
+    if (!rawPassword || rawPassword.length < MIN_LENGTH) {
       throw new DomainException(
-        `Password must be at least ${MIN_LENGTH} characters and include upper, lower, numeric, and special characters`,
+        `Password must be at least ${MIN_LENGTH} characters`,
         'WEAK_PASSWORD',
       );
     }

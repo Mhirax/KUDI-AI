@@ -17,7 +17,13 @@ export default function RecipientStep({ onSelect }) {
 
   useEffect(() => {
     transferApi.getBanks().then(setBanks);
-    beneficiaryApi.getAll().then(setBeneficiaries);
+
+    // No `beneficiaries` backend module yet. Degrade quietly: the saved-
+    // recipients list is simply absent and manual entry below still works
+    // against the real POST /transfers/external. See docs/API-CONTRACT.md.
+    beneficiaryApi.getAll()
+      .then(setBeneficiaries)
+      .catch(() => setBeneficiaries([]));
   }, []);
 
   const isValid = accountNumber.length === 10 && selectedBank && accountName.trim().length > 1;
