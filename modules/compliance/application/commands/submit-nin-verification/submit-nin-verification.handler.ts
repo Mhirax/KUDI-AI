@@ -1,4 +1,3 @@
-import { createHash } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { CommandHandler, EventBus, ICommandHandler } from '@nestjs/cqrs';
 import { SubmitNinVerificationCommand } from './submit-nin-verification.command';
@@ -10,6 +9,10 @@ import {
   IDENTITY_VERIFICATION_PROVIDER,
   IIdentityVerificationProvider,
 } from '../../../domain/services/identity-verification-provider.interface';
+import {
+  IDENTIFIER_HASHER,
+  IIdentifierHasher,
+} from '../../../domain/services/identifier-hasher.interface';
 import { Nin } from '../../../domain/value-objects/nin.vo';
 import { VerificationType } from '../../../domain/enums/verification-type.enum';
 import { KycProfileNotFoundException } from '../../../domain/exceptions/kyc-profile-not-found.exception';
@@ -38,6 +41,7 @@ export class SubmitNinVerificationHandler
     @Inject(USER_REPOSITORY) private readonly userRepository: IUserRepository,
     @Inject(IDENTITY_VERIFICATION_PROVIDER)
     private readonly verificationProvider: IIdentityVerificationProvider,
+    @Inject(IDENTIFIER_HASHER) private readonly identifierHasher: IIdentifierHasher,
     private readonly auditRecorder: KycAuditRecorderService,
     private readonly sanctionsScreening: SanctionsScreeningService,
     private readonly eventBus: EventBus,
@@ -74,7 +78,7 @@ export class SubmitNinVerificationHandler
       throw new IdentityMismatchException();
     }
 
-    const ninHash = createHash('sha256').update(nin.getValue()).digest('hex');
+    const ninHash = this.identifierHasher.hash(nin.getValue());
     profile.recordNinVerified(ninHash, nin.toMasked());
     await this.kycProfileRepository.save(profile);
     const successEvents = profile.pullDomainEvents();

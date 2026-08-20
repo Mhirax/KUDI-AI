@@ -3,7 +3,8 @@
 - `entities/kyc-profile.entity.ts` — `KycProfile` aggregate root. Owns
   the CBN-style tier progression invariant (`TIER_1 → TIER_2 → TIER_3`)
   and guarantees a raw BVN/NIN is never part of persisted state — only
-  a SHA-256 hash and masked display form ever reach this aggregate.
+  a keyed HMAC-SHA256 digest and masked display form ever reach this
+  aggregate (see `services/identifier-hasher.interface.ts`).
 - `value-objects/` — `Bvn`, `Nin`: 11-digit format validation, with
   explicit masking methods (`toMasked()`) so callers have to opt out of
   safe display, not opt in.

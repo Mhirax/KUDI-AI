@@ -14,6 +14,7 @@ import { OfacSanctionsScreeningProvider } from '../../../infrastructure/services
 import { IUserRepository } from '../../../../identity/domain/repositories/user.repository.interface';
 import { User } from '../../../../identity/domain/entities/user.entity';
 import { IIdentityVerificationProvider } from '../../../domain/services/identity-verification-provider.interface';
+import { IIdentifierHasher } from '../../../domain/services/identifier-hasher.interface';
 import { KycTier } from '../../../domain/enums/kyc-tier.enum';
 import { KycAuditEventType } from '../../../domain/enums/kyc-audit-event-type.enum';
 import { KycAuditOutcome } from '../../../domain/enums/kyc-audit-outcome.enum';
@@ -49,6 +50,11 @@ describe('Manual KYC verification override (integration)', () => {
     auditLogRepository,
     fakeEventBus,
   );
+
+  // Deterministic but non-cryptographic — this suite proves audit/tier
+  // behavior, not the hashing algorithm itself (see
+  // hmac-identifier-hasher.service.spec.ts for that).
+  const stubIdentifierHasher: IIdentifierHasher = { hash: (value: string) => `stub-hash:${value}` };
 
   const createdUserIds: string[] = [];
 
@@ -105,6 +111,7 @@ describe('Manual KYC verification override (integration)', () => {
       auditLogRepository,
       stubUserRepository('Registered', 'Name'),
       stubVerificationProvider(false, 'Totally Different Name'),
+      stubIdentifierHasher,
       auditRecorder,
       sanctionsScreening,
       fakeEventBus,
@@ -142,6 +149,7 @@ describe('Manual KYC verification override (integration)', () => {
       auditLogRepository,
       stubUserRepository('Registered', 'Name'),
       stubVerificationProvider(true, 'Registered Name'),
+      stubIdentifierHasher,
       auditRecorder,
       sanctionsScreening,
       fakeEventBus,
@@ -167,6 +175,7 @@ describe('Manual KYC verification override (integration)', () => {
       auditLogRepository,
       stubUserRepository('Registered', 'Name'),
       stubVerificationProvider(false, 'Mismatched Name'),
+      stubIdentifierHasher,
       auditRecorder,
       sanctionsScreening,
       fakeEventBus,

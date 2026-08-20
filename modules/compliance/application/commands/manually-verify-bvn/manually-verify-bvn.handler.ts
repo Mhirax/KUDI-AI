@@ -1,4 +1,3 @@
-import { createHash } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { CommandHandler, EventBus, ICommandHandler } from '@nestjs/cqrs';
 import { ManuallyVerifyBvnCommand } from './manually-verify-bvn.command';
@@ -14,6 +13,10 @@ import {
   IDENTITY_VERIFICATION_PROVIDER,
   IIdentityVerificationProvider,
 } from '../../../domain/services/identity-verification-provider.interface';
+import {
+  IDENTIFIER_HASHER,
+  IIdentifierHasher,
+} from '../../../domain/services/identifier-hasher.interface';
 import { Bvn } from '../../../domain/value-objects/bvn.vo';
 import { VerificationType } from '../../../domain/enums/verification-type.enum';
 import { KycAuditOutcome } from '../../../domain/enums/kyc-audit-outcome.enum';
@@ -63,6 +66,7 @@ export class ManuallyVerifyBvnHandler
     @Inject(USER_REPOSITORY) private readonly userRepository: IUserRepository,
     @Inject(IDENTITY_VERIFICATION_PROVIDER)
     private readonly verificationProvider: IIdentityVerificationProvider,
+    @Inject(IDENTIFIER_HASHER) private readonly identifierHasher: IIdentifierHasher,
     private readonly auditRecorder: KycAuditRecorderService,
     private readonly sanctionsScreening: SanctionsScreeningService,
     private readonly eventBus: EventBus,
@@ -90,7 +94,7 @@ export class ManuallyVerifyBvnHandler
       expectedLastName: targetUser.lastName,
     });
 
-    const bvnHash = createHash('sha256').update(bvn.getValue()).digest('hex');
+    const bvnHash = this.identifierHasher.hash(bvn.getValue());
     profile.recordBvnVerified(bvnHash, bvn.toMasked());
     await this.kycProfileRepository.save(profile);
     const events = profile.pullDomainEvents();

@@ -66,6 +66,12 @@ queue endpoint and clear-flag action built here, deliberately kept out
 of any customer-facing response so a flagged user is never tipped off.
 Tested against the real seeded data, not a fabricated fixture.
 
+**Post-MVP hardening (2026-08-20):** BVN/NIN hashing upgraded from
+unkeyed SHA-256 to keyed HMAC-SHA256, found by reviewing a partner's
+independent implementation — see "Post-MVP hardening" below for the
+full writeup. Doesn't change the Phase 1–5 MVP verdict, just closes a
+gap the original build/review didn't catch.
+
 **Where we're going next:** the compliance module is considered
 **MVP-complete at Phases 1–5** — confirmed explicitly with the product
 owner on 2026-08-19. **Phase 6** (transaction monitoring) is
@@ -228,6 +234,74 @@ there's real transaction volume to tune detection rules against — see
 
 ### 6b. Respond
 - [ ] Decide on a SAR-style (Suspicious Activity Report) workflow once flagging exists.
+
+---
+
+## Post-MVP hardening
+
+Found after Phases 1–5 were already marked MVP-complete — not part of
+the original phase tracker, tracked here separately so the phase
+history above stays an accurate record of what each phase actually
+covered at the time.
+
+### Identifier hashing: unkeyed SHA-256 → keyed HMAC-SHA256 (2026-08-20)
+
+**Source:** found by reviewing a partner's independent build of the
+same KYC module (`KYC_FIX_REPORT.md` in their codebase) — not
+something the original Phase 1–5 build or its post-implementation
+review caught. Their code wasn't merged (that codebase doesn't
+compile, per its own `BUILD_STATUS.md`), but the underlying idea was
+verified sound and reimplemented directly against this codebase.
+
+- [x] **The gap:** all four verification handlers
+      (`submit-bvn-verification`, `submit-nin-verification`,
+      `manually-verify-bvn`, `manually-verify-nin`) hashed BVN/NIN with
+      plain `createHash('sha256')` — unkeyed. An 11-digit identifier
+      has only 10^11 possible values; an unkeyed digest is
+      brute-forceable offline against that whole space with no rate
+      limit, since the digest alone is enough to test candidates
+      against. A keyed HMAC can't be attacked that way without the key.
+- [x] **The fix:** `IIdentifierHasher`
+      (`domain/services/identifier-hasher.interface.ts`) /
+      `HmacIdentifierHasher`
+      (`infrastructure/services/hmac-identifier-hasher.service.ts`) —
+      one shared service, `createHmac('sha256', key)`, keyed by the new
+      `KYC_IDENTIFIER_HMAC_KEY` env var (32+ chars, validated at call
+      time, throws `InternalServerErrorException` if missing/short).
+      Injected into all four handlers via `IDENTIFIER_HASHER`,
+      replacing each handler's own inline `createHash` call — the same
+      "one shared implementation instead of four duplicated inline
+      copies" fix already applied once this session (see finding #5
+      above, `KycTierResolverService`).
+- [x] **Migration:** `20260820045157_invalidate_unkeyed_kyc_hashes` —
+      a pure data migration, no schema/column change (both algorithms
+      produce the same 64-hex-char shape into the existing
+      `bvnHash`/`ninHash` columns). Clears any `bvnHash`/`ninHash`
+      computed with the old unkeyed algorithm and resets `tier` to
+      `TIER_1`, since an old digest isn't comparable to a new keyed one
+      for the same identifier. At the time this was applied, zero
+      `kyc_profiles` rows had any hash set (test-data-only stage) — the
+      migration affected 0 rows in practice, run for correctness rather
+      than because data was observed to change. **Known limitation,
+      accepted deliberately:** the migration does not touch any
+      already-activated `Account` — if this is ever re-run against a
+      database with real verified profiles, treat the resulting forced
+      re-verification as needing its own customer-communication/
+      compliance-review plan, not something a raw migration should
+      silently handle.
+- [x] `manually-verify-bvn.handler.integration-spec.ts` updated with a
+      stub `IIdentifierHasher` at its three direct-construction call
+      sites (this suite proves audit/tier behavior, not the hashing
+      algorithm itself).
+- [x] New unit suite,
+      `hmac-identifier-hasher.service.spec.ts`: deterministic (same
+      input → same output), actually keyed (different keys → different
+      digests, and different from a plain SHA-256 of the same input —
+      proving it isn't silently ignoring the key), throws on a
+      missing/short key.
+
+**Verified:** `tsc --noEmit` clean, a DI-graph boot of `AppModule`,
+full unit suite 47/47 (4 new), full integration suite 27/27 unaffected.
 
 ---
 

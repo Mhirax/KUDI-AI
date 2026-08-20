@@ -188,8 +188,10 @@ compliance/
 
 **Key design decisions** (why, not just what — full reasoning in `implementation.md`):
 
-- Raw BVN/NIN are never persisted — only a SHA-256 hash and a masked
-  display form ever reach the database.
+- Raw BVN/NIN are never persisted — only a keyed HMAC-SHA256 digest
+  (`KYC_IDENTIFIER_HMAC_KEY`) and a masked display form ever reach the
+  database. Upgraded from an unkeyed SHA-256 digest 2026-08-20 — see
+  `implementation.md`'s "Post-MVP hardening" section.
 - Identity-verification name matching is conservative (exact,
   case-insensitive) — a false pass is the dangerous direction there.
   Sanctions screening is the opposite bias (permissive, token-based) —

@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 
 import flutterwaveConfig from '../../infrastructure/config/flutterwave.config';
+import kycConfig from '../../infrastructure/config/kyc.config';
 
 // Domain ports
 import { KYC_PROFILE_REPOSITORY } from './domain/repositories/kyc-profile.repository.interface';
@@ -13,6 +14,7 @@ import { SANCTIONS_LIST_REPOSITORY } from './domain/repositories/sanctions-list.
 import { IDENTITY_VERIFICATION_PROVIDER } from './domain/services/identity-verification-provider.interface';
 import { SANCTIONS_SCREENING_PROVIDER } from './domain/services/sanctions-screening-provider.interface';
 import { KYC_TIER_RESOLVER } from './domain/services/kyc-tier-resolver.interface';
+import { IDENTIFIER_HASHER } from './domain/services/identifier-hasher.interface';
 
 // Infrastructure adapters (this module)
 import { PrismaKycProfileRepository } from './infrastructure/persistence/prisma-kyc-profile.repository';
@@ -22,6 +24,7 @@ import { PrismaSanctionsListRepository } from './infrastructure/persistence/pris
 import { FlutterwaveIdentityVerificationProvider } from './infrastructure/services/flutterwave-identity-verification-provider.service';
 import { OfacSanctionsScreeningProvider } from './infrastructure/services/ofac-sanctions-screening.service';
 import { KycTierResolverService } from './infrastructure/services/kyc-tier-resolver.service';
+import { HmacIdentifierHasher } from './infrastructure/services/hmac-identifier-hasher.service';
 
 // Flutterwave integration adapter
 import { FLUTTERWAVE_VERIFICATION_CLIENT } from '../../integrations/payment-gateway/flutterwave/verification/flutterwave-verification.port';
@@ -72,7 +75,13 @@ const eventHandlers = [UserRegisteredHandler];
  * port or event, nothing more.
  */
 @Module({
-  imports: [CqrsModule, ConfigModule.forFeature(flutterwaveConfig), HttpModule, IdentityModule],
+  imports: [
+    CqrsModule,
+    ConfigModule.forFeature(flutterwaveConfig),
+    ConfigModule.forFeature(kycConfig),
+    HttpModule,
+    IdentityModule,
+  ],
   controllers: [KycController],
   providers: [
     ...commandHandlers,
@@ -85,6 +94,7 @@ const eventHandlers = [UserRegisteredHandler];
     { provide: KYC_AUDIT_LOG_REPOSITORY, useClass: PrismaKycAuditLogRepository },
     { provide: SANCTIONS_LIST_REPOSITORY, useClass: PrismaSanctionsListRepository },
     { provide: KYC_TIER_RESOLVER, useClass: KycTierResolverService },
+    { provide: IDENTIFIER_HASHER, useClass: HmacIdentifierHasher },
     { provide: IDENTITY_VERIFICATION_PROVIDER, useClass: FlutterwaveIdentityVerificationProvider },
     { provide: SANCTIONS_SCREENING_PROVIDER, useClass: OfacSanctionsScreeningProvider },
     { provide: FLUTTERWAVE_VERIFICATION_CLIENT, useClass: FlutterwaveVerificationAdapter },

@@ -7,10 +7,11 @@ const BVN_REGEX = /^\d{11}$/;
  *
  * BVN is highly sensitive PII. This value object exists only
  * transiently during the verification flow — the raw value is sent to
- * the verification provider and then discarded; only a SHA-256 hash
- * (for deduplication) and a masked display form are ever persisted
- * (see infrastructure/mappers/kyc-profile.mapper.ts). Never log or
- * persist the raw value.
+ * the verification provider and then discarded; only a keyed
+ * HMAC-SHA256 digest (for deduplication, see
+ * domain/services/identifier-hasher.interface.ts) and a masked display
+ * form are ever persisted (see infrastructure/mappers/kyc-profile.mapper.ts).
+ * Never log or persist the raw value.
  */
 export class Bvn {
   private constructor(private readonly value: string) {}
