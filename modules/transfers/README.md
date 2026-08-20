@@ -3,6 +3,10 @@
 Third implemented bounded context: money movement between accounts —
 both internal (wallet-to-wallet, synchronous) and external (payouts to
 other Nigerian banks via Flutterwave, asynchronous).
+See [`implementation.md`](implementation.md) for known open gaps
+(idempotency, no ledger, missing executor tests) found in the
+2026-08-19 MVP-completeness review — the internal-transfer ownership
+leak flagged earlier is already fixed and tracked there too.
 
 ## Layers (Clean Architecture)
 

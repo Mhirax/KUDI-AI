@@ -12,19 +12,39 @@ any of them.
 
 ## Built, in order
 
-### 1. Identity
+Each module below carries its own MVP-complete verdict — ✅ done, or
+🟡 open gaps still tracked — decided against that module's own
+`implementation.md`, not assumed from "it's been built." A module
+being *built* and a module being *MVP-complete* are different claims;
+this roadmap tracks both per module so neither gets conflated with the
+other at a glance.
+
+### 1. Identity — ✅ MVP-complete
 Registration, login, JWT auth. The foundation — every other module
 depends on knowing *who* is making a request before anything else can
-happen.
+happen. A 2026-08-19 review found two undocumented security trade-offs
+(password policy, account lockout); both got a deliberate decision and
+a same-day fix — see
+[`modules/identity/implementation.md`](../modules/identity/implementation.md).
 
-### 2. Accounts
+### 2. Accounts — ✅ MVP-complete
 Wallets/balances. A verified identity needs somewhere for money to
-live — account opening, crediting, debiting, freeze/unfreeze.
+live — account opening, crediting, debiting, freeze/unfreeze. The
+2026-08-19 review found registration didn't actually provision an
+account server-side (a frontend workaround was covering for it) plus a
+freeze/unfreeze role asymmetry; both got a deliberate decision and a
+same-day fix, verified against the real DB. See
+[`modules/accounts/implementation.md`](../modules/accounts/implementation.md).
 
-### 3. Transfers
+### 3. Transfers — 🟡 Not yet MVP-complete
 Money movement *out* — external transfers (to another bank) and
 internal transfers (Kudi-to-Kudi). Built once Accounts existed, since
 you can't move money between or out of accounts that don't exist yet.
+The internal-transfer ownership-leak bug found this session is fixed,
+but the 2026-08-19 review found this module still has no idempotency
+protection — a real risk of double-debiting a customer on a retried
+request — plus no ledger and no tests on its highest-risk file. See
+[`modules/transfers/implementation.md`](../modules/transfers/implementation.md).
 
 ### 4. Compliance (KYC) — ✅ MVP-complete
 Tier-based transaction limits, rate limiting, a durable audit trail,
