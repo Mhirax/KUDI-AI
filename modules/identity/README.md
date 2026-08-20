@@ -2,6 +2,9 @@
 
 First implemented bounded context: user registration, authentication,
 JWT access + rotating opaque refresh tokens, and RBAC role assignment.
+See [`implementation.md`](implementation.md) for known open gaps
+(password policy, account lockout) found in the 2026-08-19
+MVP-completeness review.
 
 ## Layers (Clean Architecture)
 
@@ -42,7 +45,8 @@ Dependency direction is strictly inward: `presentation` → `application`
   token revokes its entire token family (theft/reuse detection).
 - Account lockout: 5 consecutive failed logins locks the account for
   15 minutes — enforced as a domain invariant on the `User` aggregate,
-  not in a controller or middleware.
+  not in a controller or middleware. Auto-unlocks on the next login
+  attempt once the window has passed, resetting the counter.
 - Timing-safe login: a dummy bcrypt comparison runs even when the
   email doesn't exist, to avoid revealing account existence via
   response timing.

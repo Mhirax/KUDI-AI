@@ -1,6 +1,6 @@
 import { DomainException } from '../../../../shared/exceptions/domain.exception';
 
-const MIN_LENGTH = 8;
+const MIN_LENGTH = 10;
 
 /**
  * PlainPassword Value Object — validates strength rules for a raw,

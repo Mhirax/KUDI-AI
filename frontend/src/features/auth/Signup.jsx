@@ -9,10 +9,10 @@ import './Signup.scss';
 // REBUILT — backend register expects { email, password, firstName, lastName, phoneNumber }
 // phoneNumber must be E.164: +2348012345678 (PhoneInput already collects the
 // 10-digit local part, we just prefix +234 same as before).
-// Password rule from backend: min 8 characters, no other constraints.
+// Password rule from backend: min 10 characters, no other constraints.
 // POST /auth/register returns UserResponseDto (no tokens) — navigate to /login.
 
-const PASSWORD_RULE = /^.{8,}$/;
+const PASSWORD_RULE = /^.{10,}$/;
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -32,7 +32,7 @@ export default function Signup() {
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) e.email = 'Enter a valid email address';
     if (!phone || phone.length < 10) e.phone = 'Enter a valid 10-digit phone number';
     if (!PASSWORD_RULE.test(password)) {
-      e.password = 'Min 8 characters';
+      e.password = 'Min 10 characters';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -118,7 +118,7 @@ export default function Signup() {
           <input
             className={'signup__input' + (errors.password ? ' has-error' : '')}
             type="password"
-            placeholder="Min 8 characters"
+            placeholder="Min 10 characters"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
@@ -126,7 +126,7 @@ export default function Signup() {
           />
           {password && (
             <p className={'signup__strength ' + passwordStrength}>
-              {passwordStrength === 'strong' ? '✓ Looks good' : 'Needs at least 8 characters'}
+              {passwordStrength === 'strong' ? '✓ Looks good' : 'Needs at least 10 characters'}
             </p>
           )}
           {errors.password && <p className="signup__error">{errors.password}</p>}

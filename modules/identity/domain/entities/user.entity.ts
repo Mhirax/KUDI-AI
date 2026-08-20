@@ -7,9 +7,14 @@ import { UserStatus } from '../enums/user-status.enum';
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
 import { UserLoginFailedEvent } from '../events/user-login-failed.event';
+import { UserAccountLockedEvent } from '../events/user-account-locked.event';
 import { PasswordChangedEvent } from '../events/password-changed.event';
 import { UserNotActiveException } from '../exceptions/user-not-active.exception';
+import { AccountLockedException } from '../exceptions/account-locked.exception';
 import { DomainEvent } from '../../../../shared/events/domain-event.base';
+
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 
 export interface UserProps {
   id: string;
@@ -84,16 +89,26 @@ export class User {
    * throwing domain exceptions that the application layer translates
    * at the boundary.
    *
-   * Lockout-on-repeated-failure is disabled for now (see recordFailedLogin) —
-   * LOCKED is still accepted here so any account locked before the feature
-   * was disabled can still log back in.
+   * A LOCKED account past its `lockedUntil` is auto-unlocked here
+   * (rather than requiring a separate scheduled job) so the very next
+   * login attempt after the lockout window gets a clean slate: reset
+   * counter, fresh set of attempts. The mutation is safe to leave
+   * unsaved if the caller throws before persisting — this method never
+   * throws on the auto-unlock path itself.
    */
   assertCanAttemptLogin(): void {
-    if (
-      this.props.status !== UserStatus.ACTIVE &&
-      this.props.status !== UserStatus.PENDING_VERIFICATION &&
-      this.props.status !== UserStatus.LOCKED
-    ) {
+    if (this.props.status === UserStatus.LOCKED) {
+      if (this.props.lockedUntil && this.props.lockedUntil > new Date()) {
+        throw new AccountLockedException(this.props.lockedUntil);
+      }
+      this.props.status = UserStatus.ACTIVE;
+      this.props.failedLoginAttempts = 0;
+      this.props.lockedUntil = null;
+      this.props.updatedAt = new Date();
+      return;
+    }
+
+    if (this.props.status !== UserStatus.ACTIVE && this.props.status !== UserStatus.PENDING_VERIFICATION) {
       throw new UserNotActiveException(this.props.status);
     }
   }
@@ -109,9 +124,6 @@ export class User {
     this.addDomainEvent(new UserLoggedInEvent(this.props.id, ipAddress, userAgent));
   }
 
-  // Lockout-on-repeated-failure is disabled for now — failed attempts are
-  // still counted/emitted for visibility, but never flip the account to
-  // LOCKED. Re-enable by restoring the MAX_FAILED_LOGIN_ATTEMPTS check here.
   recordFailedLogin(ipAddress: string | null): void {
     this.props.failedLoginAttempts += 1;
     this.props.updatedAt = new Date();
@@ -119,6 +131,12 @@ export class User {
     this.addDomainEvent(
       new UserLoginFailedEvent(this.props.id, this.props.failedLoginAttempts, ipAddress),
     );
+
+    if (this.props.failedLoginAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
+      this.props.status = UserStatus.LOCKED;
+      this.props.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
+      this.addDomainEvent(new UserAccountLockedEvent(this.props.id, this.props.lockedUntil));
+    }
   }
 
   changePassword(newPasswordHash: HashedPassword): void {

@@ -8,7 +8,7 @@ export const authApi = {
 
   // POST /auth/register  (PUBLIC)
   // Body: { email, phoneNumber, password, firstName, lastName }
-  // phoneNumber must be E.164, e.g. +2348012345678. Password is 12–128 chars.
+  // phoneNumber must be E.164, e.g. +2348012345678. Password min 10 chars, no other constraints.
   // Returns UserResponseDto — no tokens, the user logs in separately.
   register: (payload) => api.post('/auth/register', payload),
 

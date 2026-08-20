@@ -3,6 +3,7 @@ import { Email } from '../value-objects/email.vo';
 import { PhoneNumber } from '../value-objects/phone-number.vo';
 import { HashedPassword } from '../value-objects/password.vo';
 import { UserStatus } from '../enums/user-status.enum';
+import { AccountLockedException } from '../exceptions/account-locked.exception';
 
 function buildUser(): User {
   return User.register({
@@ -22,18 +23,25 @@ describe('User aggregate — login lockout invariant', () => {
     expect(events[0].eventName).toBe('identity.user.registered');
   });
 
-  // Lockout-on-repeated-failure is disabled for now — failed attempts are
-  // still counted, but the account never flips to LOCKED and login is
-  // never blocked because of them.
-  it('does not lock the account no matter how many attempts fail', () => {
+  it('locks the account after 5 consecutive failed attempts', () => {
     const user = buildUser();
     user.pullDomainEvents(); // discard registration event
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 5; i++) {
+      user.recordFailedLogin(null);
+    }
+    expect(user.status).toBe(UserStatus.LOCKED);
+    expect(user.failedLoginAttempts).toBe(5);
+    expect(user.lockedUntil).not.toBeNull();
+    expect(() => user.assertCanAttemptLogin()).toThrow(AccountLockedException);
+  });
+
+  it('does not lock the account before the 5th failed attempt', () => {
+    const user = buildUser();
+    for (let i = 0; i < 4; i++) {
       user.recordFailedLogin(null);
     }
     expect(user.status).not.toBe(UserStatus.LOCKED);
-    expect(user.failedLoginAttempts).toBe(10);
     expect(() => user.assertCanAttemptLogin()).not.toThrow();
   });
 
@@ -44,5 +52,22 @@ describe('User aggregate — login lockout invariant', () => {
     user.recordSuccessfulLogin(null, null);
     expect(user.failedLoginAttempts).toBe(0);
     expect(user.lockedUntil).toBeNull();
+  });
+
+  it('auto-unlocks once the lockout window has passed, resetting the counter', () => {
+    const user = buildUser();
+    for (let i = 0; i < 5; i++) {
+      user.recordFailedLogin(null);
+    }
+    expect(user.status).toBe(UserStatus.LOCKED);
+
+    // Simulate the lockout window having already elapsed.
+    const props = user.toProps();
+    const expiredUser = User.reconstitute({ ...props, lockedUntil: new Date(Date.now() - 1000) });
+
+    expect(() => expiredUser.assertCanAttemptLogin()).not.toThrow();
+    expect(expiredUser.status).toBe(UserStatus.ACTIVE);
+    expect(expiredUser.failedLoginAttempts).toBe(0);
+    expect(expiredUser.lockedUntil).toBeNull();
   });
 });
