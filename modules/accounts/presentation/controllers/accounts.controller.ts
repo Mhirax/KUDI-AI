@@ -30,6 +30,12 @@ import { UserRole } from '../../../identity/domain/enums/user-role.enum';
 import { Currency } from '../../../../shared/enums/currency.enum';
 
 const ADMIN_ROLES = [UserRole.ADMIN, UserRole.SUPER_ADMIN];
+// Freeze and unfreeze share this set deliberately — a compliance officer
+// who freezes an account during an investigation shouldn't need to
+// escalate to an admin to reverse their own action. One shared constant
+// so the two routes can't drift apart again (they used to: freeze allowed
+// COMPLIANCE_OFFICER, unfreeze didn't).
+const ACCOUNT_FREEZE_ROLES = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.COMPLIANCE_OFFICER];
 
 /**
  * All endpoints require authentication (global `JwtAuthGuard`); this
@@ -98,7 +104,7 @@ export class AccountsController {
 
   @Post(':accountId/freeze')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.COMPLIANCE_OFFICER)
+  @Roles(...ACCOUNT_FREEZE_ROLES)
   async freeze(
     @Param('accountId') accountId: string,
     @Body() dto: FreezeAccountDto,
@@ -108,7 +114,7 @@ export class AccountsController {
 
   @Post(':accountId/unfreeze')
   @UseGuards(RolesGuard)
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCOUNT_FREEZE_ROLES)
   async unfreeze(@Param('accountId') accountId: string): Promise<AccountResponseDto> {
     return this.commandBus.execute(new UnfreezeAccountCommand(accountId));
   }

@@ -2,7 +2,10 @@
 
 Second implemented bounded context: account/wallet lifecycle (open,
 credit, debit, freeze, unfreeze, close) with NUBAN-format account
-numbers and exact `bigint`-based monetary arithmetic.
+numbers and exact `bigint`-based monetary arithmetic. **MVP-complete**
+as of 2026-08-19 — see [`implementation.md`](implementation.md) for
+the two gaps found in that day's review (account provisioning,
+freeze/unfreeze role asymmetry) and how each was closed.
 
 ## Layers (Clean Architecture)
 
@@ -24,7 +27,7 @@ accounts/
 | POST   | `/accounts/:accountId/credit`           | Admin/Super Admin                       |
 | POST   | `/accounts/:accountId/debit`               | Admin/Super Admin                          |
 | POST   | `/accounts/:accountId/freeze`                 | Admin/Super Admin/Compliance Officer          |
-| POST   | `/accounts/:accountId/unfreeze`                  | Admin/Super Admin                                |
+| POST   | `/accounts/:accountId/unfreeze`                  | Admin/Super Admin/Compliance Officer                                |
 | POST   | `/accounts/:accountId/close`                        | Owner or admin                                      |
 
 ## Design Decisions
@@ -52,6 +55,15 @@ accounts/
   domain or application internals. `Account.userId` is a plain scalar
   reference, not a Prisma relation, preserving bounded-context
   isolation at the database level too.
+- **The reverse direction is coupled on purpose.** Identity's
+  `RegisterUserHandler` directly dispatches this module's
+  `OpenAccountCommand` (via the shared `CommandBus`) so every
+  registered user provably has exactly one `WALLET`/`NGN` account —
+  not an event-driven reaction, a synchronous, awaited call that fails
+  registration itself if account creation fails. See
+  `modules/identity/implementation.md` for the full reasoning; this
+  module's own account-opening logic (`OpenAccountHandler`) is
+  unchanged either way.
 
 ## Relationship to the Rust ledger-engine
 
