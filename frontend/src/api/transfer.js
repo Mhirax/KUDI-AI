@@ -42,15 +42,14 @@ export const TX_STATUS = {
   CANCELLED:  'CANCELLED',
 };
 
-// KNOWN GAP: the backend defines IDEMPOTENCY_HEADER = 'x-idempotency-key' in
-// shared/constants/index.ts but no handler reads it. Sending it is therefore
-// currently a no-op — a retried transfer creates a second debit.
+// The backend now honours IDEMPOTENCY_HEADER = 'x-idempotency-key' (see
+// shared/idempotency/) — retrying with the same key replays the original
+// transfer's result instead of creating a second one.
 //
-// Generating the key here (once per call) is also wrong: a genuine retry needs
-// the SAME key as the original attempt. The key must be created once per user
-// intent by the calling screen and passed in. Left as a parameter so the
-// call sites are already shaped correctly when the backend starts honouring it.
-// Tracked as mismatch #1 in docs/API-CONTRACT.md.
+// Generating the key here (once per call) would still be wrong: a genuine
+// retry needs the SAME key as the original attempt. The key is created once
+// per user intent by the calling screen (Transfer.jsx, via useRef) and
+// passed in here, not generated per call.
 function idempotencyHeaders(idempotencyKey) {
   return idempotencyKey ? { headers: { 'x-idempotency-key': idempotencyKey } } : {};
 }

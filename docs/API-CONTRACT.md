@@ -106,9 +106,11 @@ Every method below throws `FeatureNotAvailableError`. No mock data is returned.
 
 Decisions required before the affected modules are built.
 
+~~`x-idempotency-key` sent by the frontend and ignored by the backend~~
+— **resolved 2026-08-20**, see `shared/idempotency/`.
+
 | # | Mismatch | Decision needed |
 |---|---|---|
-| 1 | **`x-idempotency-key` is sent by the frontend and ignored by the backend.** `shared/constants/index.ts` defines the constant; nothing reads it. The frontend also generates a fresh UUID per call, so it is not idempotent client-side either. | Backend must read the header and de-duplicate. Frontend must generate the key **once per user intent**, not per request. |
 | 2 | **No bank-list endpoint.** `transfer.js` hardcodes 20 Nigerian banks. | Either expose `GET /transfers/banks` proxying Flutterwave, or formally accept the static list and document it. |
 | 3 | **No name-enquiry endpoint.** Recipient names are typed by hand and never verified. | Expose account-name resolution before external transfers, or accept the misdirected-payment risk explicitly. |
 | 4 | **No `PUT /users/me`.** Profile is read-only. | Add to `identity`, or remove the edit affordance from the UI. |

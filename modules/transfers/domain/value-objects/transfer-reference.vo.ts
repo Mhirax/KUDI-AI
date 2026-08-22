@@ -6,11 +6,13 @@ const REFERENCE_REGEX = /^KUDI-[A-Z0-9]{16}$/;
 /**
  * TransferReference Value Object.
  *
- * Doubles as the platform's idempotency key for transfer initiation:
- * callers may safely retry a request with the same reference without
- * risking a duplicate transfer (enforced by a unique constraint at the
- * persistence layer). Also the identifier surfaced to customers and
- * sent to Flutterwave as our external reference for external payouts.
+ * A unique, server-generated identifier for one Transfer row — the
+ * value shown to customers and sent to Flutterwave as our external
+ * reference for external payouts. NOT a retry-safety mechanism: a new
+ * one is generated on every call, retry or not, so it cannot detect a
+ * duplicate request. Request-level retry safety is
+ * shared/idempotency's job (client-supplied `x-idempotency-key`,
+ * checked before this reference is ever generated).
  */
 export class TransferReference {
   private constructor(private readonly value: string) {}

@@ -1,6 +1,7 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { CurrentUser } from '../../../../shared/decorators/current-user.decorator';
+import { IDEMPOTENCY_HEADER } from '../../../../shared/constants';
 import { InitiateInternalTransferDto } from '../../application/dto/initiate-internal-transfer.dto';
 import { InitiateExternalTransferDto } from '../../application/dto/initiate-external-transfer.dto';
 import { TransferResponseDto } from '../../application/dto/transfer-response.dto';
@@ -25,6 +26,7 @@ export class TransfersController {
   async initiateInternal(
     @CurrentUser() user: AccessTokenPayload,
     @Body() dto: InitiateInternalTransferDto,
+    @Headers(IDEMPOTENCY_HEADER) idempotencyKey?: string,
   ): Promise<TransferResponseDto> {
     return this.commandBus.execute(
       new InitiateInternalTransferCommand(
@@ -33,6 +35,7 @@ export class TransfersController {
         dto.destinationAccountId,
         dto.amount,
         dto.narration,
+        idempotencyKey,
       ),
     );
   }
@@ -42,6 +45,7 @@ export class TransfersController {
   async initiateExternal(
     @CurrentUser() user: AccessTokenPayload,
     @Body() dto: InitiateExternalTransferDto,
+    @Headers(IDEMPOTENCY_HEADER) idempotencyKey?: string,
   ): Promise<TransferResponseDto> {
     return this.commandBus.execute(
       new InitiateExternalTransferCommand(
@@ -52,6 +56,7 @@ export class TransfersController {
         dto.recipientAccountName,
         dto.amount,
         dto.narration,
+        idempotencyKey,
       ),
     );
   }

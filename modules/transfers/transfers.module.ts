@@ -4,6 +4,8 @@ import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 
 import flutterwaveConfig from '../../infrastructure/config/flutterwave.config';
+import { IdempotencyModule } from '../../shared/idempotency/idempotency.module';
+import { LedgerModule } from '../../shared/ledger/ledger.module';
 
 // Domain ports
 import { TRANSFER_REPOSITORY } from './domain/repositories/transfer.repository.interface';
@@ -71,6 +73,8 @@ const queryHandlers = [GetTransferByReferenceHandler, ListMyTransfersHandler];
     HttpModule,
     AccountsModule,
     ComplianceModule,
+    IdempotencyModule,
+    LedgerModule,
   ],
   controllers: [TransfersController, FlutterwaveTransferWebhookController],
   providers: [

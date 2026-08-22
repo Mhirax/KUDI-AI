@@ -62,7 +62,7 @@ money movement itself yet. That's the missing ledger — see root
 
 | Table | Stores |
 |---|---|
-| `transfers` | `type` (INTERNAL/EXTERNAL), amount + fee (BigInt kobo), source/destination account ids, recipient bank details (external only), `status`, Flutterwave's `providerReference`. `reference` doubles as the intended idempotency key — not yet actually enforced anywhere, see root `README.md` §4 |
+| `transfers` | `type` (INTERNAL/EXTERNAL), amount + fee (BigInt kobo), source/destination account ids, recipient bank details (external only), `status`, Flutterwave's `providerReference`. `reference` is a unique display/tracking id, generated fresh on every call — it is *not* a retry-safety mechanism (see `IdempotencyKey` below for that) |
 
 ### Compliance — `KycProfile`, `KycAuditLogEntry`, `SanctionsListEntry`, `KycTierLimit`
 
@@ -72,6 +72,21 @@ money movement itself yet. That's the missing ledger — see root
 | `kyc_audit_log` | Append-only: every verification attempt, tier change, and sanctions screening result, with `performedByUserId` distinguishing self-service from staff-performed actions |
 | `sanctions_list_entries` | Seeded OFAC SDN watchlist (reference data, not user data) |
 | `kyc_tier_limits` | Per-tier transaction/balance limits (reference/config data) |
+
+### Shared cross-cutting — `IdempotencyKey`
+
+Not owned by any one bounded context — added 2026-08-20 alongside
+`shared/idempotency/` to close Transfers' idempotency gap, built as a
+reusable mechanism from the start.
+
+| Table | Stores |
+|---|---|
+| `idempotency_keys` | One row per `(userId, scope, key)` — `scope` namespaces the key space per operation (e.g. `"transfer.internal"`). `status` (`IN_PROGRESS`/`COMPLETED`) plus `resourceId` once completed, used to replay a request's original result instead of re-executing it |
+
+Current consumer: Transfers' internal/external transfer initiation.
+Funding, Bills, and Loans are expected to import `IdempotencyModule`
+and reuse this same table rather than each growing their own — see
+root `README.md` §6.
 
 ---
 

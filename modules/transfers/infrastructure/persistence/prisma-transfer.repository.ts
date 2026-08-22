@@ -53,6 +53,26 @@ export class PrismaTransferRepository implements ITransferRepository {
     });
 
     if (result.count === 0) {
+      // A zero-match update is ambiguous by itself: it's the expected
+      // signal for a genuine concurrent modification, but it's also
+      // what happens when a mutator (e.g. markFailed()) runs on a
+      // transfer that was never persisted in the first place — its
+      // in-memory version is no longer 0 even though no row exists yet
+      // (PrismaInternalTransferExecutor's failure path does exactly
+      // this: markFailed() before the very first save, since the
+      // success path persists via a raw tx.transfer.create() instead
+      // of this method). Only throw once we've confirmed the row
+      // actually exists; otherwise this is really a first-time create.
+      const exists = await this.prisma.transfer.findUnique({
+        where: { id: data.id },
+        select: { id: true },
+      });
+
+      if (!exists) {
+        await this.prisma.transfer.create({ data });
+        return;
+      }
+
       throw new DomainException(
         `Transfer ${data.id} was modified concurrently; please retry`,
         'CONCURRENT_MODIFICATION',

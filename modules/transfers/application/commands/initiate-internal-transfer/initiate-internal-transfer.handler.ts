@@ -10,11 +10,16 @@ import {
   KYC_TRANSFER_LIMIT_CHECKER,
   IKycTransferLimitChecker,
 } from '../../../domain/services/kyc-transfer-limit-checker.interface';
+import {
+  TRANSFER_REPOSITORY,
+  ITransferRepository,
+} from '../../../domain/repositories/transfer.repository.interface';
 import { SelfTransferNotAllowedException } from '../../../domain/exceptions/self-transfer-not-allowed.exception';
 import { UnauthorizedTransferException } from '../../../domain/exceptions/unauthorized-transfer.exception';
 import { TransferType } from '../../../domain/enums/transfer-type.enum';
 import { Money } from '../../../../../shared/value-objects/money.vo';
 import { TransferResponseDto } from '../../dto/transfer-response.dto';
+import { IdempotencyGuardService } from '../../../../../shared/idempotency/idempotency-guard.service';
 
 // Cross-module dependency on Accounts' *port* (interface + DI token),
 // not its internals — a standard, well-scoped module boundary crossing
@@ -40,13 +45,35 @@ export class InitiateInternalTransferHandler
 {
   constructor(
     @Inject(ACCOUNT_REPOSITORY) private readonly accountRepository: IAccountRepository,
+    @Inject(TRANSFER_REPOSITORY) private readonly transferRepository: ITransferRepository,
     @Inject(FEE_CALCULATOR) private readonly feeCalculator: IFeeCalculator,
     @Inject(KYC_TRANSFER_LIMIT_CHECKER) private readonly kycLimitChecker: IKycTransferLimitChecker,
     @Inject(INTERNAL_TRANSFER_EXECUTOR) private readonly executor: IInternalTransferExecutor,
     private readonly eventBus: EventBus,
+    private readonly idempotencyGuard: IdempotencyGuardService,
   ) {}
 
   async execute(command: InitiateInternalTransferCommand): Promise<TransferResponseDto> {
+    return this.idempotencyGuard.run(
+      {
+        userId: command.initiatorUserId,
+        scope: 'transfer.internal',
+        key: command.idempotencyKey,
+      },
+      () => this.doExecute(command),
+      async (resourceId) => {
+        const transfer = await this.transferRepository.findById(resourceId);
+        // The row that markCompleted() wrote resourceId against cannot
+        // legitimately be missing by the time a replay reads it back.
+        if (!transfer) throw new AccountNotFoundException(resourceId);
+        return TransferResponseDto.fromDomain(transfer);
+      },
+    );
+  }
+
+  private async doExecute(
+    command: InitiateInternalTransferCommand,
+  ): Promise<{ resourceId: string; response: TransferResponseDto }> {
     if (command.sourceAccountId === command.destinationAccountId) {
       throw new SelfTransferNotAllowedException();
     }
@@ -90,6 +117,6 @@ export class InitiateInternalTransferHandler
 
     result.events.forEach((event) => this.eventBus.publish(event));
 
-    return TransferResponseDto.fromDomain(result.transfer);
+    return { resourceId: result.transfer.id, response: TransferResponseDto.fromDomain(result.transfer) };
   }
 }

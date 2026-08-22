@@ -5,5 +5,7 @@ export class InitiateInternalTransferCommand {
     readonly destinationAccountId: string,
     readonly amount: string, // decimal major-unit string, e.g. "1500.00"
     readonly narration: string,
+    /** From the x-idempotency-key header. Null/undefined = unprotected. */
+    readonly idempotencyKey?: string,
   ) {}
 }

@@ -7,5 +7,7 @@ export class InitiateExternalTransferCommand {
     readonly recipientAccountName: string,
     readonly amount: string,
     readonly narration: string,
+    /** From the x-idempotency-key header. Null/undefined = unprotected. */
+    readonly idempotencyKey?: string,
   ) {}
 }

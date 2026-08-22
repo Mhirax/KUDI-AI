@@ -308,3 +308,115 @@ model KycTierLimit {
 
   @@map("kyc_tier_limits")
 }
+
+// ==========================================================================
+// Shared cross-cutting infrastructure (shared/idempotency)
+// Not owned by any one bounded context — a request-retry-safety
+// mechanism any module that mutates money/state can opt into. First
+// consumer is Transfers; Funding/Bills/Loans are expected to reuse
+// this same table rather than each growing their own.
+// ==========================================================================
+
+enum IdempotencyKeyStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+/// One row per (userId, scope, key). `scope` namespaces the key space
+/// per operation (e.g. "transfer.internal") so the same client-chosen
+/// key can't collide across unrelated operations. `resourceId` is only
+/// populated once COMPLETED — the id of whatever was created (e.g. a
+/// Transfer.id) — and is used to replay the original response instead
+/// of re-executing. A cleanly-thrown business error deletes its row
+/// immediately (safe to retry with the same key); a row stuck at
+/// IN_PROGRESS past a short staleness window (a crashed process, not a
+/// thrown exception) is reclaimed by the next attempt rather than
+/// blocking forever — see shared/idempotency/idempotency-guard.service.ts.
+model IdempotencyKey {
+  id         String               @id @default(uuid())
+  userId     String
+  scope      String
+  key        String
+  status     IdempotencyKeyStatus @default(IN_PROGRESS)
+  resourceId String?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  @@unique([userId, scope, key])
+  @@map("idempotency_keys")
+}
+
+// ==========================================================================
+// Shared cross-cutting infrastructure (shared/ledger)
+// Not owned by any one bounded context — an append-only double-entry
+// journal any module that mutates a balance can post to. Interim,
+// denormalized-projection mechanism: Account.balance remains the
+// system of record for now (see Account entity's own header comment),
+// this table is the durable "why" behind each change to it, and is
+// meant to be reconciled against Flutterwave's own records. Expected
+// to be superseded once /rust/ledger-engine is actually built out.
+// See modules/transfers/implementation.md, gap #2.
+//
+// NOTE: `ledger_entries` already existed live on the shared dev DB
+// before this table was ever added to this file — part of the
+// pre-existing schema drift earlier sessions deliberately left
+// untouched (see the idempotency migration's write-up). Its shape
+// (userId, entryType, sourceEventId) is adopted here as-is rather than
+// replaced; `journalId` is the one genuinely new column, added because
+// the two pre-existing rows (test-credit-001/test-debit-001, unrelated
+// single-sided test data) don't pair up as a balanced posting — nothing
+// before this enforced that. `entryType` anticipates the same roadmap
+// as shared/idempotency (Funding → DEPOSIT, Bills → BILL_PAYMENT).
+// ==========================================================================
+
+enum EntryDirection {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerEntryType {
+  TRANSFER
+  DEPOSIT
+  BILL_PAYMENT
+  ADJUSTMENT
+}
+
+/// One row per leg of a balanced posting. Every `journalId` groups two
+/// or more legs whose DEBITs and CREDITs must net to zero per currency
+/// — enforced in code (shared/ledger/prisma-ledger-recorder.service.ts)
+/// before any row is written, not by a DB constraint, since Postgres
+/// can't easily express "these N rows must sum to zero" declaratively.
+/// `accountId` is a plain scalar reference — either a real Accounts
+/// module Account.id, or one of the well-known synthetic system
+/// account ids (shared/ledger/system-ledger-account.ts) used for the
+/// non-customer side of a posting (fee revenue, external-payout
+/// clearing) where no real Account row exists; `balanceAfterMinorUnits`
+/// is a real running balance for those too (computed from that
+/// account's own prior entries), not a stand-in Account row.
+/// `sourceEventId` is unique per row/leg — a dedup key for a future
+/// caller that wants exactly-once posting of one event; today's
+/// callers generate a fresh one per leg and rely on
+/// shared/idempotency for request-level retry safety instead.
+model LedgerEntry {
+  id                     String          @id @default(uuid())
+  journalId              String
+  accountId              String
+  userId                 String
+  direction              EntryDirection
+  /// Minor units (kobo/cents) — always positive; `direction` carries the sign.
+  amountMinorUnits       BigInt
+  balanceAfterMinorUnits BigInt
+  currency               String
+  entryType              LedgerEntryType
+  /// The originating Transfer's reference — links entries back to it.
+  reference              String
+  sourceEventId          String          @unique
+  occurredAt             DateTime
+  createdAt              DateTime        @default(now())
+
+  @@index([accountId, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([reference])
+  @@index([journalId])
+  @@map("ledger_entries")
+}

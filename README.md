@@ -3,8 +3,9 @@
 Microfinance banking platform — NestJS backend, React frontend, PostgreSQL.
 
 > **Current stage:** 4 of ~11 planned modules built. Identity, Accounts, and
-> Compliance (KYC) are MVP-complete. Transfers works but isn't — no
-> idempotency protection is the one real blocker. Funding/Deposits is next.
+> Compliance (KYC) are MVP-complete. Transfers works and is now
+> idempotency-safe (2026-08-20) — no ledger and no executor tests are its
+> two remaining open items before an MVP verdict. Funding/Deposits is next.
 
 **Roadmap source of truth:** this file + [`docs/module.md`](docs/module.md)
 (full module-by-module reasoning).
@@ -43,13 +44,14 @@ Don't add a broker until something actually needs one.
 | [**compliance**](modules/compliance/implementation.md) | 10 — KYC verify/staff lookup/override/sanctions/staff freeze | ✅ Complete |
 
 **Transfers is the one open item.** The ownership-leak bug that originally
-raised doubt about this module is fixed. Still open: no idempotency (a
-retried request can double-debit someone — the one gap I'd call an actual
-blocker), no ledger behind `Account.balance`, no tests on
-`PrismaInternalTransferExecutor`.
+raised doubt about this module is fixed, and so is idempotency (2026-08-20 —
+a retried request now replays the original result instead of double-debiting
+someone, via `shared/idempotency/`, a reusable mechanism Funding/Bills/Loans
+are expected to reuse rather than each rebuilding). Still open: no ledger
+behind `Account.balance`, no tests on `PrismaInternalTransferExecutor`.
 
-**Verified, not asserted:** `tsc --noEmit` clean · 43 unit tests / 8 suites ·
-27 integration tests / 6 suites, run against the real Postgres DB in `.env`.
+**Verified, not asserted:** `tsc --noEmit` clean · 52 unit tests / 10 suites ·
+33 integration tests / 7 suites, run against the real Postgres DB in `.env`.
 
 ---
 
@@ -61,11 +63,13 @@ documented exceptions (direct `CommandBus` dispatch, chosen over an
 event listener specifically to avoid `EventBus.publish()`'s fire-and-forget
 silent-failure risk) · money is `BigInt` end to end, no floats · optimistic
 concurrency via `version` columns · rate limiting + account lockout live ·
-CORS fails closed by default.
+CORS fails closed by default · request-retry safety (`shared/idempotency/`)
+proven correct against a real concurrent race, not just application logic —
+the database's own unique constraint is what guarantees it, not a
+check-then-act.
 
-**Structural holes, both in Transfers:** no ledger (can't reconcile
-`Account.balance` against Flutterwave), no idempotency (retried request =
-second debit).
+**Structural hole remaining, in Transfers:** no ledger (can't reconcile
+`Account.balance` against Flutterwave).
 
 **Ordinary hardening still owed:** no controller/e2e tests anywhere, `tx: any`
 in the transfer executor, frontend ESLint reportedly never runs (per the
@@ -77,44 +81,45 @@ in the transfer executor, frontend ESLint reportedly never runs (per the
 
 | # | Issue | Severity |
 |---|---|---|
-| 1 | Transfers are not idempotent — `IDEMPOTENCY_HEADER` is defined, never read | **Critical** |
-| 2 | No ledger — no double-entry journal behind `Account.balance` | **Critical** |
-| 3 | No tests on `PrismaInternalTransferExecutor`, the highest-risk file in the repo | High |
-| 4 | No controller/e2e tests anywhere, only domain + some integration | Medium |
-| 5 | Frontend ESLint never runs — no `frontend/tsconfig.json` | Medium |
-| 6 | `client.js` silently drops `ValidationPipe`'s array-format errors — falls back to a generic status message instead of the real reason | Medium |
-| 7 | No name enquiry before external transfers — a typo sends money to the wrong person | Low |
-| 8 | Dead auth screens — `VerifyOtp.jsx`, `SetupPin.jsx`, no backend behind either | Low |
+| 1 | No ledger — no double-entry journal behind `Account.balance` | **Critical** |
+| 2 | No tests on `PrismaInternalTransferExecutor`, the highest-risk file in the repo | High |
+| 3 | No controller/e2e tests anywhere, only domain + some integration | Medium |
+| 4 | Frontend ESLint never runs — no `frontend/tsconfig.json` | Medium |
+| 5 | `client.js` silently drops `ValidationPipe`'s array-format errors — falls back to a generic status message instead of the real reason | Medium |
+| 6 | No name enquiry before external transfers — a typo sends money to the wrong person | Low |
+| 7 | Dead auth screens — `VerifyOtp.jsx`, `SetupPin.jsx`, no backend behind either | Low |
 
 **Closed this session:** rate limiting, `CORS_ORIGIN` defaulting to `*`,
-client-side-only account provisioning, disabled account lockout, and the
-`AccountsController` freeze/unfreeze role asymmetry. Detail in each module's
-`implementation.md`.
+client-side-only account provisioning, disabled account lockout, the
+`AccountsController` freeze/unfreeze role asymmetry, and (2026-08-20)
+Transfers' idempotency gap. Detail in each module's `implementation.md`.
 
 ---
 
 ## 5. Open decisions
 
-None of these were touched this session. Recommendation given; the call is
+D2–D6 were not touched this session. Recommendation given; the call is
 the team's — full reasoning for each lives in git history/prior discussion.
+
+~~D1 — Idempotency key ownership~~ — **resolved 2026-08-20**, see
+`shared/idempotency/`.
 
 | # | Decision | Recommended | Blocks |
 |---|---|---|---|
-| D1 | Idempotency key ownership | Backend reads `IDEMPOTENCY_HEADER`, stores per-user, replays on retry | Transfers' MVP verdict |
 | D2 | Money units in unbuilt modules | Decimal strings on the wire everywhere — `savings`/`cards`/`loans` clients currently use `*Kobo` ints, treat as a defect | Every future module |
 | D3 | Hardcoded 20-bank list in `transfer.js` | Add `GET /transfers/banks` proxying Flutterwave, cached | Nothing urgent |
 | D4 | No name enquiry before external transfers | Build with Funding — same Flutterwave client work | Nothing urgent |
 | D5 | Internal transfers have no UI | Add `GET /users/lookup?phone=` — name + account ID only, nothing else | Nothing urgent |
-| D6 | OTP/transaction PIN — screens exist, unrouted, no backend | Decide in-or-out now; a PIN changes the transfer contract | D1, if adopted |
+| D6 | OTP/transaction PIN — screens exist, unrouted, no backend | Decide in-or-out now; a PIN changes the transfer contract | Nothing — D1 resolved without a PIN |
 
 ---
 
 ## 6. What's next
 
 **Foundational hardening before Funding** (not a module, just prerequisites):
-idempotency (D1) → `LedgerEntry` table (append-only, inside the existing
-`$transaction`) → tests on the transfer executor. Account provisioning and
-throttler/CORS hardening are already done.
+~~idempotency~~ (✅ done, 2026-08-20) → `LedgerEntry` table (append-only,
+inside the existing `$transaction`) → tests on the transfer executor.
+Account provisioning and throttler/CORS hardening are already done too.
 
 **Upcoming modules, in order** — each justified by what it needs to already
 exist to mean anything:
@@ -134,16 +139,19 @@ exist to mean anything:
 
 ## 7. Next session — start here
 
-1. Settle **D1**, then close Transfers' idempotency gap — this is what's
-   actually blocking its MVP verdict.
-2. Build the `LedgerEntry` table, then write the missing
-   `PrismaInternalTransferExecutor` integration test.
-3. Once Transfers has a clean verdict, start **Funding/Deposits** (§6).
+1. Build the `LedgerEntry` table, then write the missing
+   `PrismaInternalTransferExecutor` integration test — the two remaining
+   items on Transfers.
+2. Decide whether those two are acceptable to defer for MVP the way
+   Compliance's Phase 6 was, or whether Transfers needs them closed first —
+   not yet decided either way.
+3. Once Transfers has a clean verdict, start **Funding/Deposits** (§6) —
+   it can now build on `shared/idempotency/` directly rather than
+   re-solving retry-safety.
 
 **Do not:** reintroduce mock data in the frontend · add a Rust engine to the
 request path (still 50-line stubs) · wire Redis/RabbitMQ before a module
-needs one · start Funding before Transfers' idempotency gap closes — every
-later module inherits the same double-debit risk otherwise.
+needs one.
 
 ---
 
@@ -163,8 +171,8 @@ state — see [`docs/API-CONTRACT.md`](docs/API-CONTRACT.md).
 
 ```sh
 npm run typecheck            # currently clean
-npm run test:unit            # 43 tests, 8 suites
-npm run test:integration     # 27 tests, 6 suites, against the real DB
+npm run test:unit            # 52 tests, 10 suites
+npm run test:integration     # 33 tests, 7 suites, against the real DB
 cd frontend && npm run build
 ```
 

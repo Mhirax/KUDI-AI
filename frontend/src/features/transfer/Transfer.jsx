@@ -29,9 +29,9 @@ export default function Transfer() {
 
   // One idempotency key per user intent, NOT per request — a retry of the
   // same transfer must carry the same key. Reset only when the user starts a
-  // new transfer. The backend does not honour this header yet (see
-  // docs/API-CONTRACT.md mismatch #1); the call site is shaped correctly so
-  // that landing it server-side needs no frontend change.
+  // new transfer. The backend honours this header (shared/idempotency/) —
+  // a retried submit replays the original transfer's result rather than
+  // creating a second one.
   const idempotencyKeyRef = useRef(null);
 
   useEffect(() => {

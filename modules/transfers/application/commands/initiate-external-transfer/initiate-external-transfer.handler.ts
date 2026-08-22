@@ -1,10 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CommandHandler, EventBus, ICommandHandler } from '@nestjs/cqrs';
 import { InitiateExternalTransferCommand } from './initiate-external-transfer.command';
-import {
-  FEE_CALCULATOR,
-  IFeeCalculator,
-} from '../../../domain/services/fee-calculator.interface';
+import { FEE_CALCULATOR, IFeeCalculator } from '../../../domain/services/fee-calculator.interface';
 import {
   EXTERNAL_PAYOUT_PROVIDER,
   IExternalPayoutProvider,
@@ -22,6 +19,15 @@ import { ExternalRecipient } from '../../../domain/value-objects/external-recipi
 import { TransferType } from '../../../domain/enums/transfer-type.enum';
 import { Money } from '../../../../../shared/value-objects/money.vo';
 import { TransferResponseDto } from '../../dto/transfer-response.dto';
+import { IdempotencyGuardService } from '../../../../../shared/idempotency/idempotency-guard.service';
+import {
+  LEDGER_RECORDER,
+  ILedgerRecorder,
+  LedgerPostingLeg,
+} from '../../../../../shared/ledger/ledger-recorder.interface';
+import { LedgerEntryDirection } from '../../../../../shared/ledger/ledger-entry-direction.enum';
+import { LedgerEntryType } from '../../../../../shared/ledger/ledger-entry-type.enum';
+import { SystemLedgerAccount } from '../../../../../shared/ledger/system-ledger-account';
 
 import {
   ACCOUNT_REPOSITORY,
@@ -45,9 +51,10 @@ import { UnauthorizedTransferException } from '../../../domain/exceptions/unauth
  */
 @Injectable()
 @CommandHandler(InitiateExternalTransferCommand)
-export class InitiateExternalTransferHandler
-  implements ICommandHandler<InitiateExternalTransferCommand, TransferResponseDto>
-{
+export class InitiateExternalTransferHandler implements ICommandHandler<
+  InitiateExternalTransferCommand,
+  TransferResponseDto
+> {
   private readonly logger = new Logger(InitiateExternalTransferHandler.name);
 
   constructor(
@@ -56,10 +63,30 @@ export class InitiateExternalTransferHandler
     @Inject(FEE_CALCULATOR) private readonly feeCalculator: IFeeCalculator,
     @Inject(KYC_TRANSFER_LIMIT_CHECKER) private readonly kycLimitChecker: IKycTransferLimitChecker,
     @Inject(EXTERNAL_PAYOUT_PROVIDER) private readonly payoutProvider: IExternalPayoutProvider,
+    @Inject(LEDGER_RECORDER) private readonly ledgerRecorder: ILedgerRecorder,
     private readonly eventBus: EventBus,
+    private readonly idempotencyGuard: IdempotencyGuardService,
   ) {}
 
   async execute(command: InitiateExternalTransferCommand): Promise<TransferResponseDto> {
+    return this.idempotencyGuard.run(
+      {
+        userId: command.initiatorUserId,
+        scope: 'transfer.external',
+        key: command.idempotencyKey,
+      },
+      () => this.doExecute(command),
+      async (resourceId) => {
+        const transfer = await this.transferRepository.findById(resourceId);
+        if (!transfer) throw new AccountNotFoundException(resourceId);
+        return TransferResponseDto.fromDomain(transfer);
+      },
+    );
+  }
+
+  private async doExecute(
+    command: InitiateExternalTransferCommand,
+  ): Promise<{ resourceId: string; response: TransferResponseDto }> {
     const sourceAccount = await this.accountRepository.findById(command.sourceAccountId);
     if (!sourceAccount) {
       throw new AccountNotFoundException(command.sourceAccountId);
@@ -104,6 +131,32 @@ export class InitiateExternalTransferHandler
     await this.transferRepository.save(transfer);
     const initiatedEvents = transfer.pullDomainEvents();
 
+    // Double-entry journal for the hold (modules/transfers/implementation.md,
+    // gap #2): the debited total sits in a synthetic clearing account
+    // until the payout's outcome is known, then Step 3 (below) or
+    // ConfirmExternalTransferHandler relieves it one way or the other.
+    // Posted outside any DB transaction, same as the debit/save above —
+    // this saga spans a call to Flutterwave and can't be made atomic.
+    await this.ledgerRecorder.post({
+      reference: transfer.reference.getValue(),
+      narration: command.narration,
+      userId: command.initiatorUserId,
+      entryType: LedgerEntryType.TRANSFER,
+      legs: [
+        {
+          accountId: sourceAccount.id,
+          direction: LedgerEntryDirection.DEBIT,
+          amount: totalDebit,
+          balanceAfter: sourceAccount.balance,
+        },
+        {
+          accountId: SystemLedgerAccount.externalPayoutClearing(totalDebit.getCurrency()),
+          direction: LedgerEntryDirection.CREDIT,
+          amount: totalDebit,
+        },
+      ],
+    });
+
     // Step 3: attempt the actual payout.
     try {
       const payoutResult = await this.payoutProvider.initiatePayout({
@@ -115,6 +168,36 @@ export class InitiateExternalTransferHandler
 
       if (payoutResult.isImmediatelySettled) {
         transfer.markSuccessful();
+        // Relieve the clearing account now, since the outcome is
+        // already known — ConfirmExternalTransferHandler won't run for
+        // this transfer. The async (PROCESSING) case leaves the funds
+        // in clearing until that handler resolves the later webhook.
+        const settlementLegs: LedgerPostingLeg[] = [
+          {
+            accountId: SystemLedgerAccount.externalPayoutClearing(totalDebit.getCurrency()),
+            direction: LedgerEntryDirection.DEBIT,
+            amount: totalDebit,
+          },
+          {
+            accountId: SystemLedgerAccount.externalPayoutSettled(amount.getCurrency()),
+            direction: LedgerEntryDirection.CREDIT,
+            amount,
+          },
+        ];
+        if (!fee.isZero()) {
+          settlementLegs.push({
+            accountId: SystemLedgerAccount.feeRevenue(fee.getCurrency()),
+            direction: LedgerEntryDirection.CREDIT,
+            amount: fee,
+          });
+        }
+        await this.ledgerRecorder.post({
+          reference: transfer.reference.getValue(),
+          narration: command.narration,
+          userId: command.initiatorUserId,
+          entryType: LedgerEntryType.TRANSFER,
+          legs: settlementLegs,
+        });
       } else {
         transfer.markProcessing(payoutResult.providerReference);
       }
@@ -124,7 +207,7 @@ export class InitiateExternalTransferHandler
         this.eventBus.publish(event),
       );
 
-      return TransferResponseDto.fromDomain(transfer);
+      return { resourceId: transfer.id, response: TransferResponseDto.fromDomain(transfer) };
     } catch (payoutError) {
       this.logger.warn(
         `External payout failed synchronously for transfer ${transfer.reference.getValue()}; compensating.`,
@@ -139,6 +222,27 @@ export class InitiateExternalTransferHandler
       if (refreshedSource) {
         refreshedSource.credit(totalDebit, `reversal:${transfer.reference.getValue()}`);
         await this.accountRepository.save(refreshedSource);
+        // Relieve the clearing account back to the customer, mirroring
+        // the credit above — the clearing leg from Step 2 nets to zero.
+        await this.ledgerRecorder.post({
+          reference: transfer.reference.getValue(),
+          narration: `reversal: ${command.narration}`,
+          userId: command.initiatorUserId,
+          entryType: LedgerEntryType.TRANSFER,
+          legs: [
+            {
+              accountId: SystemLedgerAccount.externalPayoutClearing(totalDebit.getCurrency()),
+              direction: LedgerEntryDirection.DEBIT,
+              amount: totalDebit,
+            },
+            {
+              accountId: refreshedSource.id,
+              direction: LedgerEntryDirection.CREDIT,
+              amount: totalDebit,
+              balanceAfter: refreshedSource.balance,
+            },
+          ],
+        });
       } else {
         this.logger.error(
           `Could not load source account ${command.sourceAccountId} to compensate failed payout ${transfer.reference.getValue()} — manual reconciliation required.`,
