@@ -2,10 +2,10 @@
 
 Microfinance banking platform — NestJS backend, React frontend, PostgreSQL.
 
-> **Current stage:** 4 of ~11 planned modules built. Identity, Accounts, and
-> Compliance (KYC) are MVP-complete. Transfers works and is now
-> idempotency-safe (2026-08-20) — no ledger and no executor tests are its
-> two remaining open items before an MVP verdict. Funding/Deposits is next.
+> **Current stage:** 4 of ~11 planned modules built, and as of 2026-08-22
+> **all four are MVP-complete** — Identity, Accounts, Compliance (KYC), and
+> now Transfers, whose last two open items (no ledger, no executor tests)
+> are both closed. Funding/Deposits is next.
 
 **Roadmap source of truth:** this file + [`docs/module.md`](docs/module.md)
 (full module-by-module reasoning).
@@ -40,18 +40,25 @@ Don't add a broker until something actually needs one.
 |---|---|---|
 | [**identity**](modules/identity/implementation.md) | 7 — register/login/refresh/logout/change-password/get self/by-id | ✅ Complete |
 | [**accounts**](modules/accounts/implementation.md) | 8 — open/list/get/credit/debit/freeze/unfreeze/close | ✅ Complete |
-| [**transfers**](modules/transfers/implementation.md) | 5 — internal (atomic)/external (Flutterwave saga)/list/get/webhook | 🟡 Open gaps |
+| [**transfers**](modules/transfers/implementation.md) | 5 — internal (atomic)/external (Flutterwave saga)/list/get/webhook | ✅ Complete |
 | [**compliance**](modules/compliance/implementation.md) | 10 — KYC verify/staff lookup/override/sanctions/staff freeze | ✅ Complete |
 
-**Transfers is the one open item.** The ownership-leak bug that originally
-raised doubt about this module is fixed, and so is idempotency (2026-08-20 —
-a retried request now replays the original result instead of double-debiting
-someone, via `shared/idempotency/`, a reusable mechanism Funding/Bills/Loans
-are expected to reuse rather than each rebuilding). Still open: no ledger
-behind `Account.balance`, no tests on `PrismaInternalTransferExecutor`.
+**Transfers closed out 2026-08-22.** The ownership-leak bug that originally
+raised doubt about this module was fixed earlier, idempotency followed
+(2026-08-20 — a retried request now replays the original result instead of
+double-debiting someone, via `shared/idempotency/`, a reusable mechanism
+Funding/Bills/Loans are expected to reuse rather than each rebuilding), and
+now both remaining items are closed too: every balance mutation posts a real
+double-entry journal (`shared/ledger/`, adapted to a pre-existing
+`ledger_entries` table found live on the DB rather than replacing it), and
+`PrismaInternalTransferExecutor` — the highest-risk file in the repo — has
+dedicated integration coverage, which in the process caught and fixed a real
+bug in failed-transfer persistence. `shared/ledger/` is an interim,
+denormalized mechanism, not a substitute for `/rust/ledger-engine` actually
+being built — see §4.
 
-**Verified, not asserted:** `tsc --noEmit` clean · 52 unit tests / 10 suites ·
-33 integration tests / 7 suites, run against the real Postgres DB in `.env`.
+**Verified, not asserted:** `tsc --noEmit` clean · 56 unit tests / 11 suites ·
+36 integration tests / 8 suites, run against the real Postgres DB in `.env`.
 
 ---
 
@@ -68,12 +75,16 @@ proven correct against a real concurrent race, not just application logic —
 the database's own unique constraint is what guarantees it, not a
 check-then-act.
 
-**Structural hole remaining, in Transfers:** no ledger (can't reconcile
-`Account.balance` against Flutterwave).
+**Structural hole that remained, in Transfers, is now closed:** every
+balance mutation posts a real double-entry journal (`shared/ledger/`) that
+can be reconciled against Flutterwave. Still an interim, denormalized
+mechanism — `Account.balance` stays the system of record until
+`/rust/ledger-engine` is actually built out.
 
 **Ordinary hardening still owed:** no controller/e2e tests anywhere, `tx: any`
-in the transfer executor, frontend ESLint reportedly never runs (per the
-2026-08-15 audit, not re-verified since).
+in the transfer executor (deliberate, documented convention — not itself a
+bug), frontend ESLint reportedly never runs (per the 2026-08-15 audit, not
+re-verified since).
 
 ---
 
@@ -81,18 +92,22 @@ in the transfer executor, frontend ESLint reportedly never runs (per the
 
 | # | Issue | Severity |
 |---|---|---|
-| 1 | No ledger — no double-entry journal behind `Account.balance` | **Critical** |
-| 2 | No tests on `PrismaInternalTransferExecutor`, the highest-risk file in the repo | High |
-| 3 | No controller/e2e tests anywhere, only domain + some integration | Medium |
-| 4 | Frontend ESLint never runs — no `frontend/tsconfig.json` | Medium |
-| 5 | `client.js` silently drops `ValidationPipe`'s array-format errors — falls back to a generic status message instead of the real reason | Medium |
-| 6 | No name enquiry before external transfers — a typo sends money to the wrong person | Low |
-| 7 | Dead auth screens — `VerifyOtp.jsx`, `SetupPin.jsx`, no backend behind either | Low |
+| 1 | No controller/e2e tests anywhere, only domain + some integration | Medium |
+| 2 | Frontend ESLint never runs — no `frontend/tsconfig.json` | Medium |
+| 3 | `client.js` silently drops `ValidationPipe`'s array-format errors — falls back to a generic status message instead of the real reason | Medium |
+| 4 | No name enquiry before external transfers — a typo sends money to the wrong person | Low |
+| 5 | Dead auth screens — `VerifyOtp.jsx`, `SetupPin.jsx`, no backend behind either | Low |
 
-**Closed this session:** rate limiting, `CORS_ORIGIN` defaulting to `*`,
-client-side-only account provisioning, disabled account lockout, the
-`AccountsController` freeze/unfreeze role asymmetry, and (2026-08-20)
-Transfers' idempotency gap. Detail in each module's `implementation.md`.
+**Closed this session (2026-08-22):** Transfers' last two open items —
+no ledger (`shared/ledger/`, double-entry journal for every balance
+mutation) and no tests on `PrismaInternalTransferExecutor` (which caught a
+real bug in failed-transfer persistence along the way). Full writeup in
+`modules/transfers/implementation.md`.
+
+**Closed 2026-08-20 or earlier:** rate limiting, `CORS_ORIGIN` defaulting to
+`*`, client-side-only account provisioning, disabled account lockout, the
+`AccountsController` freeze/unfreeze role asymmetry, and Transfers'
+idempotency gap. Detail in each module's `implementation.md`.
 
 ---
 
@@ -116,10 +131,11 @@ the team's — full reasoning for each lives in git history/prior discussion.
 
 ## 6. What's next
 
-**Foundational hardening before Funding** (not a module, just prerequisites):
-~~idempotency~~ (✅ done, 2026-08-20) → `LedgerEntry` table (append-only,
-inside the existing `$transaction`) → tests on the transfer executor.
-Account provisioning and throttler/CORS hardening are already done too.
+**Foundational hardening before Funding** (not a module, just prerequisites)
+is now fully done: ~~idempotency~~ (✅ 2026-08-20) → ~~`LedgerEntry`
+journal~~ (✅ 2026-08-22, `shared/ledger/`) → ~~tests on the transfer
+executor~~ (✅ 2026-08-22). Account provisioning and throttler/CORS
+hardening were already done too.
 
 **Upcoming modules, in order** — each justified by what it needs to already
 exist to mean anything:
@@ -139,15 +155,14 @@ exist to mean anything:
 
 ## 7. Next session — start here
 
-1. Build the `LedgerEntry` table, then write the missing
-   `PrismaInternalTransferExecutor` integration test — the two remaining
-   items on Transfers.
-2. Decide whether those two are acceptable to defer for MVP the way
-   Compliance's Phase 6 was, or whether Transfers needs them closed first —
-   not yet decided either way.
-3. Once Transfers has a clean verdict, start **Funding/Deposits** (§6) —
-   it can now build on `shared/idempotency/` directly rather than
-   re-solving retry-safety.
+1. Transfers has a clean verdict — all four built modules are MVP-complete.
+   Start **Funding/Deposits** (§6): it can build on `shared/idempotency/`
+   and `shared/ledger/` directly rather than re-solving retry-safety or
+   double-entry bookkeeping from scratch.
+2. Whether the still-missing `/rust/ledger-engine` (Transfers'
+   `shared/ledger/` is a deliberate interim substitute, not that) needs to
+   exist before a real production launch is a decision that hasn't been
+   made — not assumed either way.
 
 **Do not:** reintroduce mock data in the frontend · add a Rust engine to the
 request path (still 50-line stubs) · wire Redis/RabbitMQ before a module
@@ -171,8 +186,8 @@ state — see [`docs/API-CONTRACT.md`](docs/API-CONTRACT.md).
 
 ```sh
 npm run typecheck            # currently clean
-npm run test:unit            # 52 tests, 10 suites
-npm run test:integration     # 33 tests, 7 suites, against the real DB
+npm run test:unit            # 56 tests, 11 suites
+npm run test:integration     # 36 tests, 8 suites, against the real DB
 cd frontend && npm run build
 ```
 
