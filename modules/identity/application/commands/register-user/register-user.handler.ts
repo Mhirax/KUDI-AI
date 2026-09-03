@@ -35,10 +35,18 @@ export class RegisterUserHandler implements ICommandHandler<RegisterUserCommand,
 
   async execute(command: RegisterUserCommand): Promise<UserResponseDto> {
     const email = Email.create(command.email);
+    const phoneNumber = PhoneNumber.create(command.phoneNumber);
 
-    const alreadyExists = await this.userRepository.existsByEmail(email);
-    if (alreadyExists) {
+    if (await this.userRepository.existsByEmail(email)) {
       throw new UserAlreadyExistsException(email.getValue());
+    }
+
+    // Phone number is unique in the schema too. Without this check the
+    // collision surfaces as a raw Prisma unique-constraint error at save
+    // time, which reaches the caller as an opaque 500 rather than telling
+    // them which field to change.
+    if (await this.userRepository.existsByPhoneNumber(phoneNumber)) {
+      throw new UserAlreadyExistsException(phoneNumber.getValue(), 'phone number');
     }
 
     const plainPassword = PlainPassword.create(command.password);
@@ -47,7 +55,7 @@ export class RegisterUserHandler implements ICommandHandler<RegisterUserCommand,
 
     const user = User.register({
       email,
-      phoneNumber: PhoneNumber.create(command.phoneNumber),
+      phoneNumber,
       passwordHash,
       firstName: command.firstName,
       lastName: command.lastName,

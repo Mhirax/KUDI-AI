@@ -1,4 +1,11 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
@@ -15,17 +22,24 @@ import { DomainException } from '../../shared/exceptions/domain.exception';
  * 2. `HttpException` — standard NestJS/framework exceptions.
  * 3. Anything else — treated as an unexpected 500, with no internal
  *    detail leaked to the client.
+ *
+ * Case 3 is logged with its stack before the response is sent. The client
+ * still learns nothing beyond "Internal server error", but the server keeps
+ * a record: without it an unexpected failure leaves no trace anywhere, and a
+ * 500 in production becomes unreproducible guesswork. Expected failures
+ * (cases 1 and 2) are not logged as errors — a rejected login is not an
+ * incident, and logging it as one trains people to ignore the error log.
  */
-
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
-    console.error('UNHANDLED EXCEPTION:', exception);
     const ctx = host.switchToHttp();
-    console.error('UNHANDLED EXCEPTION:', exception);
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest();
     const url = request?.url ?? 'unknown';
+    const method = request?.method ?? 'UNKNOWN';
 
     if (exception instanceof DomainException) {
       response.status(exception.httpStatus).json({
@@ -44,7 +58,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let message: unknown = 'Internal server error';
     if (exception instanceof HttpException) {
       const resp = exception.getResponse();
-      message = typeof resp === 'object' ? ((resp as any).message ?? resp) : resp;
+      message = typeof resp === 'object' ? (resp as any).message ?? resp : resp;
+    } else {
+      this.logger.error(
+        `Unhandled exception on ${method} ${url}`,
+        exception instanceof Error ? exception.stack : String(exception),
+      );
     }
 
     response.status(status).json({

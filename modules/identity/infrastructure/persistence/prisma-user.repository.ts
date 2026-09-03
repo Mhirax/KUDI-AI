@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../infrastructure/database/prisma.servic
 import { IUserRepository } from '../../domain/repositories/user.repository.interface';
 import { User } from '../../domain/entities/user.entity';
 import { Email } from '../../domain/value-objects/email.vo';
+import { PhoneNumber } from '../../domain/value-objects/phone-number.vo';
 import { UserMapper } from '../mappers/user.mapper';
 
 /**
@@ -27,6 +28,13 @@ export class PrismaUserRepository implements IUserRepository {
 
   async existsByEmail(email: Email): Promise<boolean> {
     const count = await this.prisma.user.count({ where: { email: email.getValue() } });
+    return count > 0;
+  }
+
+  async existsByPhoneNumber(phoneNumber: PhoneNumber): Promise<boolean> {
+    const count = await this.prisma.user.count({
+      where: { phoneNumber: phoneNumber.getValue() },
+    });
     return count > 0;
   }
 

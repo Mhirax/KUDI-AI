@@ -3,7 +3,6 @@ import { AccountCreditedLedgerHandler } from './account-credited.handler';
 import { AccountDebitedLedgerHandler } from './account-debited.handler';
 import { ILedgerEntryRepository } from '../../domain/repositories/ledger-entry.repository.interface';
 import { EntryDirection } from '../../domain/enums/entry-direction.enum';
-import { LedgerEntry } from '../../domain/entities/ledger-entry.entity';
 import { AccountCreditedEvent } from '../../../accounts/domain/events/account-credited.event';
 import { AccountDebitedEvent } from '../../../accounts/domain/events/account-debited.event';
 import { IAccountRepository } from '../../../accounts/domain/repositories/account.repository.interface';
