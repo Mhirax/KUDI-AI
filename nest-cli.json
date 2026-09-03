@@ -5,7 +5,19 @@
   "compilerOptions": {
     "deleteOutDir": false,
     "webpack": false,
-    "tsConfigPath": "tsconfig.json"
+    "tsConfigPath": "tsconfig.json",
+    "plugins": [
+      {
+        "name": "@nestjs/swagger",
+        "options": {
+          "introspectComments": true,
+          "dtoFileNameSuffix": [
+            ".dto.ts",
+            ".entity.ts"
+          ]
+        }
+      }
+    ]
   },
   "monorepo": true,
   "root": "apps/mobile-api",
@@ -16,7 +28,19 @@
       "entryFile": "main",
       "sourceRoot": "apps/mobile-api/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/mobile-api/tsconfig.app.json"
+        "tsConfigPath": "apps/mobile-api/tsconfig.app.json",
+        "plugins": [
+          {
+            "name": "@nestjs/swagger",
+            "options": {
+              "introspectComments": true,
+              "dtoFileNameSuffix": [
+                ".dto.ts",
+                ".entity.ts"
+              ]
+            }
+          }
+        ]
       }
     },
     "web-api": {
@@ -25,7 +49,19 @@
       "entryFile": "main",
       "sourceRoot": "apps/web-api/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/web-api/tsconfig.app.json"
+        "tsConfigPath": "apps/web-api/tsconfig.app.json",
+        "plugins": [
+          {
+            "name": "@nestjs/swagger",
+            "options": {
+              "introspectComments": true,
+              "dtoFileNameSuffix": [
+                ".dto.ts",
+                ".entity.ts"
+              ]
+            }
+          }
+        ]
       }
     },
     "admin-api": {
@@ -34,7 +70,19 @@
       "entryFile": "main",
       "sourceRoot": "apps/admin-api/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/admin-api/tsconfig.app.json"
+        "tsConfigPath": "apps/admin-api/tsconfig.app.json",
+        "plugins": [
+          {
+            "name": "@nestjs/swagger",
+            "options": {
+              "introspectComments": true,
+              "dtoFileNameSuffix": [
+                ".dto.ts",
+                ".entity.ts"
+              ]
+            }
+          }
+        ]
       }
     },
     "api-gateway": {
@@ -43,7 +91,19 @@
       "entryFile": "main",
       "sourceRoot": "gateway/api-gateway/src",
       "compilerOptions": {
-        "tsConfigPath": "gateway/api-gateway/tsconfig.app.json"
+        "tsConfigPath": "gateway/api-gateway/tsconfig.app.json",
+        "plugins": [
+          {
+            "name": "@nestjs/swagger",
+            "options": {
+              "introspectComments": true,
+              "dtoFileNameSuffix": [
+                ".dto.ts",
+                ".entity.ts"
+              ]
+            }
+          }
+        ]
       }
     }
   }

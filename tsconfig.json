@@ -28,6 +28,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "incremental": true,
+    "rootDir": "./",
     "baseUrl": "./",
     "paths": {
       "@shared/*": ["shared/*"],
@@ -37,5 +38,27 @@
       "@gateway/*": ["gateway/*"]
     }
   },
+  // Scoped explicitly. Without an `include`, TypeScript sweeps every .ts
+  // file under the repository root and infers rootDir as the root itself.
+  // nest-cli.json loads this config while declaring `root: "apps/mobile-api"`,
+  // and that mismatch is what resolved `deleteOutDir` to the repository root
+  // instead of ./dist — a `nest build` that deleted the source tree before
+  // compiling it. `rootDir` is pinned for the same reason: so the output
+  // layout is stated rather than inferred from whichever files happen to be
+  // in the input set.
+  //
+  // generate-swagger-docs.ts is deliberately absent: it is a standalone
+  // script, not part of any application, and including it made every build
+  // depend on it compiling.
+  "include": [
+    "apps/**/*.ts",
+    "gateway/**/*.ts",
+    "modules/**/*.ts",
+    "shared/**/*.ts",
+    "infrastructure/**/*.ts",
+    "integrations/**/*.ts"
+  ],
+  // Spec files stay in scope so `tsc --noEmit` type-checks them; each
+  // app's tsconfig.app.json already excludes them from emitted output.
   "exclude": ["node_modules", "dist", "rust", "target"]
 }

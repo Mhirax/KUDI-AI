@@ -41,7 +41,11 @@ async function bootstrap(): Promise<void> {
 
   app.enableShutdownHooks();
 
-  const port = process.env.PORT || 3002;
+  // WEB_API_PORT is what .env.example documents; PORT stays as a fallback for
+  // platforms that inject it (Heroku, Cloud Run, and most PaaS hosts).
+  // Reading only PORT meant the documented variable did nothing, and
+  // running two apps side by side made them fight over one value.
+  const port = process.env.WEB_API_PORT || process.env.PORT || 3002;
   await app.listen(port);
   // eslint-disable-next-line no-console
   console.log(`[Web API] listening on port ${port}`);

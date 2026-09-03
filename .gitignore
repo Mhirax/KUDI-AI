@@ -1,6 +1,9 @@
-﻿node_modules/
+node_modules/
 .env
 .env.*
+# ...but the template must be tracked, or a new contributor has no
+# reference for which variables the services actually need.
+!.env.example
 *.log
 dist/
 build/

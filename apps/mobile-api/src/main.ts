@@ -41,7 +41,11 @@ async function bootstrap(): Promise<void> {
 
   app.enableShutdownHooks();
 
-  const port = process.env.PORT || 3001;
+  // MOBILE_API_PORT is what .env.example documents; PORT stays as a fallback for
+  // platforms that inject it (Heroku, Cloud Run, and most PaaS hosts).
+  // Reading only PORT meant the documented variable did nothing, and
+  // running two apps side by side made them fight over one value.
+  const port = process.env.MOBILE_API_PORT || process.env.PORT || 3001;
   await app.listen(port);
   // eslint-disable-next-line no-console
   console.log(`[Mobile API] listening on port ${port}`);
