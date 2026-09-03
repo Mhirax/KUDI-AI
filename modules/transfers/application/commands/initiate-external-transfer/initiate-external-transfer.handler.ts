@@ -14,6 +14,8 @@ import { Transfer } from '../../../domain/entities/transfer.entity';
 import { ExternalRecipient } from '../../../domain/value-objects/external-recipient.vo';
 import { TransferType } from '../../../domain/enums/transfer-type.enum';
 import { Money } from '../../../../../shared/value-objects/money.vo';
+import { SystemAccountService } from '../../../../accounts/application/services/system-account.service';
+import { DomainEvent } from '../../../../../shared/events/domain-event.base';
 import { TransferResponseDto } from '../../dto/transfer-response.dto';
 
 import {
@@ -49,6 +51,7 @@ export class InitiateExternalTransferHandler implements ICommandHandler<
     @Inject(TRANSFER_REPOSITORY) private readonly transferRepository: ITransferRepository,
     @Inject(FEE_CALCULATOR) private readonly feeCalculator: IFeeCalculator,
     @Inject(EXTERNAL_PAYOUT_PROVIDER) private readonly payoutProvider: IExternalPayoutProvider,
+    private readonly systemAccounts: SystemAccountService,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -71,14 +74,12 @@ export class InitiateExternalTransferHandler implements ICommandHandler<
       accountName: command.recipientAccountName,
     });
 
-    // Step 1: hold the funds. Account.debit() enforces sufficient
-    // funds / active-status invariants and its own optimistic
-    // concurrency via the repository.
-    sourceAccount.debit(totalDebit, `pending-external-payout:${command.recipientAccountNumber}`);
-    await this.accountRepository.save(sourceAccount);
-    const debitEvents = sourceAccount.pullDomainEvents();
-
-    // Step 2: record the transfer instruction as PENDING.
+    // Step 1: record the transfer instruction as PENDING. This happens
+    // before the debit so that every leg of the movement — the customer
+    // debit, the settlement credit and the fee credit — carries the same
+    // transfer reference. The ledger groups entries into a journal by that
+    // reference, and legs with different references would not group,
+    // leaving each side looking like an unrelated balance change.
     const transfer = Transfer.initiateExternal({
       initiatorUserId: command.initiatorUserId,
       sourceAccountId: command.sourceAccountId,
@@ -90,7 +91,37 @@ export class InitiateExternalTransferHandler implements ICommandHandler<
     await this.transferRepository.save(transfer);
     const initiatedEvents = transfer.pullDomainEvents();
 
-    // Step 3: attempt the actual payout.
+    const reference = transfer.reference.getValue();
+
+    // Step 2: hold the funds. Account.debit() enforces sufficient funds and
+    // active-status invariants, and its own optimistic concurrency via the
+    // repository.
+    sourceAccount.debit(totalDebit, reference);
+    await this.accountRepository.save(sourceAccount);
+    const debitEvents = sourceAccount.pullDomainEvents();
+
+    // Step 3: the other side of the debit above. Previously there was
+    // none — the customer's balance fell by amount + fee and nothing
+    // anywhere rose, so every external transfer left the books short by
+    // the whole total and no trial balance could balance.
+    //
+    // The amount is credited to the settlement float, which is the account
+    // the payout is actually made from, and the fee to fee revenue. Both
+    // are reversed in the compensation path below if the payout fails.
+    const settlement = await this.systemAccounts.settlementAccount(sourceAccount.currency);
+    settlement.credit(amount, reference);
+    await this.accountRepository.save(settlement);
+    const settlementEvents = settlement.pullDomainEvents();
+
+    let feeEvents: DomainEvent[] = [];
+    if (!fee.isZero()) {
+      const feeAccount = await this.systemAccounts.feeRevenueAccount(sourceAccount.currency);
+      feeAccount.credit(fee, reference);
+      await this.accountRepository.save(feeAccount);
+      feeEvents = feeAccount.pullDomainEvents();
+    }
+
+    // Step 4: attempt the actual payout.
     try {
       const payoutResult = await this.payoutProvider.initiatePayout({
         reference: transfer.reference.getValue(),
@@ -106,9 +137,13 @@ export class InitiateExternalTransferHandler implements ICommandHandler<
       }
       await this.transferRepository.save(transfer);
 
-      [...debitEvents, ...initiatedEvents, ...transfer.pullDomainEvents()].forEach((event) =>
-        this.eventBus.publish(event),
-      );
+      [
+        ...debitEvents,
+        ...settlementEvents,
+        ...feeEvents,
+        ...initiatedEvents,
+        ...transfer.pullDomainEvents(),
+      ].forEach((event) => this.eventBus.publish(event));
 
       return TransferResponseDto.fromDomain(transfer);
     } catch (payoutError) {
@@ -119,9 +154,33 @@ export class InitiateExternalTransferHandler implements ICommandHandler<
       // Compensate: credit the source account back, then mark the
       // transfer REVERSED rather than merely FAILED, so it's clear the
       // customer's funds were returned.
+      // Unwind the settlement and fee credits first. Without this the
+      // customer gets their money back while Kudi's own accounts keep the
+      // credits, so the reversal itself would put the books out by the
+      // full total in the opposite direction.
+      const compensationEvents: DomainEvent[] = [];
+
+      const settlementToUnwind = await this.accountRepository.findById(settlement.id);
+      if (settlementToUnwind) {
+        settlementToUnwind.debit(amount, `reversal:${reference}`);
+        await this.accountRepository.save(settlementToUnwind);
+        compensationEvents.push(...settlementToUnwind.pullDomainEvents());
+      } else {
+        this.logger.error(
+          `Could not unwind the settlement credit for ${reference} — manual reconciliation required.`,
+        );
+      }
+
+      if (!fee.isZero()) {
+        const feeToUnwind = await this.systemAccounts.feeRevenueAccount(sourceAccount.currency);
+        feeToUnwind.debit(fee, `reversal:${reference}`);
+        await this.accountRepository.save(feeToUnwind);
+        compensationEvents.push(...feeToUnwind.pullDomainEvents());
+      }
+
       const refreshedSource = await this.accountRepository.findById(command.sourceAccountId);
       if (refreshedSource) {
-        refreshedSource.credit(totalDebit, `reversal:${transfer.reference.getValue()}`);
+        refreshedSource.credit(totalDebit, `reversal:${reference}`);
         await this.accountRepository.save(refreshedSource);
       } else {
         this.logger.error(
@@ -135,7 +194,10 @@ export class InitiateExternalTransferHandler implements ICommandHandler<
 
       [
         ...debitEvents,
+        ...settlementEvents,
+        ...feeEvents,
         ...initiatedEvents,
+        ...compensationEvents,
         ...(refreshedSource?.pullDomainEvents() ?? []),
         ...transfer.pullDomainEvents(),
       ].forEach((event) => this.eventBus.publish(event));

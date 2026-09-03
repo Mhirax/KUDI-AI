@@ -35,6 +35,30 @@ export class PrismaTransferRepository implements ITransferRepository {
     return records.map((record: any) => TransferMapper.toDomain(record));
   }
 
+  async findPageByUserId(
+    userId: string,
+    skip: number,
+    take: number,
+  ): Promise<{ transfers: Transfer[]; total: number }> {
+    const where = { initiatorUserId: userId };
+
+    // One round trip for both the page and the count.
+    const [records, total] = await this.prisma.$transaction([
+      this.prisma.transfer.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.transfer.count({ where }),
+    ]);
+
+    return {
+      transfers: records.map((record: any) => TransferMapper.toDomain(record)),
+      total,
+    };
+  }
+
   async save(transfer: Transfer): Promise<void> {
     const data = TransferMapper.toPersistence(transfer);
     const previousVersion = data.version - 1;

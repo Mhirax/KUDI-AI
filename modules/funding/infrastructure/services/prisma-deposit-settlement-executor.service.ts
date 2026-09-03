@@ -13,6 +13,7 @@ import { DomainEvent } from '../../../../shared/events/domain-event.base';
 // Transfers' PrismaInternalTransferExecutor (see that file's header):
 // Accounts' own public domain entity + mapper, needed to mutate the
 // account balance inside the same transaction that settles the deposit.
+import { SystemAccountService } from '../../../accounts/application/services/system-account.service';
 import { AccountMapper } from '../../../accounts/infrastructure/mappers/account.mapper';
 import { AccountNotFoundException } from '../../../accounts/domain/exceptions/account-not-found.exception';
 
@@ -36,7 +37,10 @@ import { AccountNotFoundException } from '../../../accounts/domain/exceptions/ac
  */
 @Injectable()
 export class PrismaDepositSettlementExecutor implements IDepositSettlementExecutor {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly systemAccounts: SystemAccountService,
+  ) {}
 
   async settle(params: {
     deposit: Deposit;
@@ -75,20 +79,39 @@ export class PrismaDepositSettlementExecutor implements IDepositSettlementExecut
       }
 
       const account = AccountMapper.toDomain(accountRecord);
+
+      // The customer is credited, and Kudi's settlement float is debited by
+      // the same amount in the same transaction. Previously only the credit
+      // happened, so a deposit created money from nothing: the customer's
+      // balance rose with no corresponding fall anywhere, and the books
+      // could not be reconciled even in principle.
+      //
+      // The settlement account holds the float Kudi has at its payment
+      // provider, which is where a real deposit's money actually sits. It
+      // therefore has to be topped up as deposits draw it down — an admin
+      // credit — and an InsufficientFundsException here means exactly that:
+      // the float is exhausted, not that the customer did anything wrong.
+      const settlement = await this.systemAccounts.settlementAccount(
+        deposit.amount.getCurrency(),
+      );
+      settlement.debit(deposit.amount, deposit.reference.getValue());
       account.credit(deposit.amount, deposit.reference.getValue());
 
-      const accountData = AccountMapper.toPersistence(account);
-      const accountUpdated = await tx.account.updateMany({
-        where: { id: accountData.id, version: accountData.version - 1 },
-        data: accountData,
-      });
-      if (accountUpdated.count === 0) {
-        throw new DomainException(
-          `Account ${accountData.id} was modified concurrently; settlement aborted`,
-          'CONCURRENT_MODIFICATION',
-        );
+      for (const mutated of [settlement, account]) {
+        const data = AccountMapper.toPersistence(mutated);
+        const updated = await tx.account.updateMany({
+          where: { id: data.id, version: data.version - 1 },
+          data,
+        });
+        if (updated.count === 0) {
+          throw new DomainException(
+            `Account ${data.id} was modified concurrently; settlement aborted`,
+            'CONCURRENT_MODIFICATION',
+          );
+        }
       }
 
+      events.push(...settlement.pullDomainEvents());
       events.push(...account.pullDomainEvents());
     });
 

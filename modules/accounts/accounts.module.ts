@@ -10,6 +10,7 @@ import { ACCOUNT_NUMBER_GENERATOR } from './domain/services/account-number-gener
 
 // Infrastructure adapters
 import { PrismaAccountRepository } from './infrastructure/persistence/prisma-account.repository';
+import { SystemAccountService } from './application/services/system-account.service';
 import { NubanAccountNumberGenerator } from './infrastructure/services/nuban-account-number-generator.service';
 
 // Application command/query handlers
@@ -70,7 +71,10 @@ const eventHandlers = [KycTierUpgradedHandler, RegisterLedgerAccountHandler];
     ...eventHandlers,
     { provide: ACCOUNT_REPOSITORY, useClass: PrismaAccountRepository },
     { provide: ACCOUNT_NUMBER_GENERATOR, useClass: NubanAccountNumberGenerator },
+    SystemAccountService,
   ],
-  exports: [ACCOUNT_REPOSITORY],
+  // SystemAccountService is exported so Transfers and Funding can post
+  // the counterparty side of a fee or a deposit.
+  exports: [ACCOUNT_REPOSITORY, SystemAccountService],
 })
 export class AccountsModule {}

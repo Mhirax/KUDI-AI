@@ -1,5 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { Public } from '../../../../shared/decorators/public.decorator';
 import { CurrentUser } from '../../../../shared/decorators/current-user.decorator';
@@ -26,6 +27,7 @@ import { AccessTokenPayload } from '../../application/ports/token.service.interf
 export class AuthController {
   constructor(private readonly commandBus: CommandBus) {}
 
+  @Throttle({ sustained: { ttl: 60000, limit: 5 } })
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -41,6 +43,9 @@ export class AuthController {
     );
   }
 
+  // Five attempts a minute per IP. Enough for a person mistyping a
+  // password, far too few to work through a breached-credential list.
+  @Throttle({ sustained: { ttl: 60000, limit: 5 } })
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -50,6 +55,7 @@ export class AuthController {
     );
   }
 
+  @Throttle({ sustained: { ttl: 60000, limit: 10 } })
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)

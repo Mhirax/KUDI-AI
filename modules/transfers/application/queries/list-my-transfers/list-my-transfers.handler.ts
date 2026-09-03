@@ -6,19 +6,35 @@ import {
   ITransferRepository,
 } from '../../../domain/repositories/transfer.repository.interface';
 import { TransferResponseDto } from '../../dto/transfer-response.dto';
+import { PaginatedResponseDto } from '../../../../../shared/dto/paginated-response.dto';
 
 @Injectable()
 @QueryHandler(ListMyTransfersQuery)
 export class ListMyTransfersHandler implements IQueryHandler<
   ListMyTransfersQuery,
-  TransferResponseDto[]
+  PaginatedResponseDto<TransferResponseDto>
 > {
   constructor(
     @Inject(TRANSFER_REPOSITORY) private readonly transferRepository: ITransferRepository,
   ) {}
 
-  async execute(query: ListMyTransfersQuery): Promise<TransferResponseDto[]> {
-    const transfers = await this.transferRepository.findAllByUserId(query.userId);
-    return transfers.map((transfer) => TransferResponseDto.fromDomain(transfer));
+  async execute(
+    query: ListMyTransfersQuery,
+  ): Promise<PaginatedResponseDto<TransferResponseDto>> {
+    const { transfers, total } = await this.transferRepository.findPageByUserId(
+      query.userId,
+      (query.page - 1) * query.limit,
+      query.limit,
+    );
+
+    return {
+      data: transfers.map((transfer) => TransferResponseDto.fromDomain(transfer)),
+      meta: {
+        total,
+        page: query.page,
+        limit: query.limit,
+        totalPages: Math.max(1, Math.ceil(total / query.limit)),
+      },
+    };
   }
 }

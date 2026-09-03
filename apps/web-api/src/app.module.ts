@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_FILTER } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import appConfig from './config/app.config';
@@ -36,6 +37,15 @@ import { HttpExceptionFilter } from '../../../gateway/filters/http-exception.fil
  */
 @Module({
   imports: [
+    // Rate limiting. Two buckets: a burst ceiling that stops a client
+    // hammering the API, and a sustained ceiling over a minute. Auth
+    // routes narrow this further with @Throttle — an unlimited
+    // /auth/login is an open invitation to credential stuffing, and a
+    // bank is exactly the target that attracts it.
+    ThrottlerModule.forRoot([
+      { name: 'burst', ttl: 1000, limit: 20 },
+      { name: 'sustained', ttl: 60000, limit: 120 },
+    ]),
     ConfigModule.forRoot({
       isGlobal: true,
       load: [appConfig],
@@ -58,6 +68,9 @@ import { HttpExceptionFilter } from '../../../gateway/filters/http-exception.fil
   controllers: [AppController],
   providers: [
     AppService,
+    // Throttling runs before authentication so unauthenticated floods
+    // are rejected without touching the database.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
   ],

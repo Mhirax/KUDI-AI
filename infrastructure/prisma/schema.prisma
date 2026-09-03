@@ -86,6 +86,22 @@ enum AccountType {
   WALLET
   SAVINGS
   CURRENT
+
+  /// Kudi's own accounts, not a customer's. They exist so that every
+  /// movement has a real account on both sides and the books balance.
+  ///
+  /// SYSTEM_SETTLEMENT holds the float Kudi has at its payment provider.
+  /// A customer deposit debits it and credits the customer, so money
+  /// entering a wallet comes from somewhere instead of being conjured.
+  /// An outbound payout does the reverse.
+  ///
+  /// SYSTEM_FEE_REVENUE receives transfer fees. Without it a fee was
+  /// debited from the sender and credited to nothing.
+  ///
+  /// One of each per currency, provisioned on first use and owned by the
+  /// system user. They are excluded from customer-facing listings.
+  SYSTEM_SETTLEMENT
+  SYSTEM_FEE_REVENUE
 }
 
 // Mirrors shared/enums/account-status.enum.ts
@@ -248,6 +264,16 @@ model LedgerEntry {
   currency  String
   entryType LedgerEntryType
   reference String
+  /// Groups the entries of one movement. Both legs of a transfer — the
+  /// debit and the matching credit — share a journalId, which is what
+  /// makes this a double-entry ledger rather than a list of independent
+  /// balance changes: the entries of a journal must sum to zero.
+  ///
+  /// The column already existed in the database and was NOT NULL, but was
+  /// absent from this schema, so Prisma never supplied it and every ledger
+  /// insert failed a null constraint. The projection swallowed the error,
+  /// so balances moved while the ledger silently recorded nothing.
+  journalId String
   /// eventId of the domain event this entry was projected from — the idempotency key.
   sourceEventId String   @unique
   /// When the balance mutation occurred (event time), vs createdAt (write time).
@@ -257,6 +283,7 @@ model LedgerEntry {
   @@index([accountId, occurredAt])
   @@index([userId, occurredAt])
   @@index([reference])
+  @@index([journalId])
   @@map("ledger_entries")
 }
 

@@ -20,6 +20,7 @@ import { DomainEvent } from '../../../../shared/events/domain-event.base';
 // for why. Both are Accounts' own public domain entity + infrastructure
 // mapper, not private implementation detail reached into improperly.
 import { Account } from '../../../accounts/domain/entities/account.entity';
+import { SystemAccountService } from '../../../accounts/application/services/system-account.service';
 import { AccountMapper } from '../../../accounts/infrastructure/mappers/account.mapper';
 import { AccountNotFoundException } from '../../../accounts/domain/exceptions/account-not-found.exception';
 
@@ -56,6 +57,7 @@ export class PrismaInternalTransferExecutor implements IInternalTransferExecutor
   constructor(
     private readonly prisma: PrismaService,
     @Inject(TRANSFER_REPOSITORY) private readonly transferRepository: ITransferRepository,
+    private readonly systemAccounts: SystemAccountService,
   ) {}
 
   async execute(params: {
@@ -76,6 +78,7 @@ export class PrismaInternalTransferExecutor implements IInternalTransferExecutor
     });
 
     let accountEvents: DomainEvent[] = [];
+    let feeEvents: DomainEvent[] = [];
 
     try {
       // See saveAccountInTransaction()'s comment below re: the `any`
@@ -111,6 +114,20 @@ export class PrismaInternalTransferExecutor implements IInternalTransferExecutor
         await this.saveAccountInTransaction(tx, sourceAccount);
         await this.saveAccountInTransaction(tx, destinationAccount);
 
+        // The fee is credited to Kudi's fee-revenue account, inside this same
+        // transaction. It used to be debited from the sender and credited
+        // nowhere, so the amount left the books entirely: total debits
+        // exceeded total credits by the fee on every single transfer, and no
+        // trial balance could ever balance.
+        if (!params.fee.isZero()) {
+          const feeAccount = await this.systemAccounts.feeRevenueAccount(
+            params.fee.getCurrency(),
+          );
+          feeAccount.credit(params.fee, transfer.reference.getValue());
+          await this.saveAccountInTransaction(tx, feeAccount);
+          feeEvents = feeAccount.pullDomainEvents();
+        }
+
         transfer.markSuccessful();
         const transferData = TransferMapper.toPersistence(transfer);
         await tx.transfer.create({ data: transferData });
@@ -118,6 +135,7 @@ export class PrismaInternalTransferExecutor implements IInternalTransferExecutor
         accountEvents = [
           ...sourceAccount.pullDomainEvents(),
           ...destinationAccount.pullDomainEvents(),
+          ...feeEvents,
         ];
       });
     } catch (error) {

@@ -5,6 +5,7 @@ import { HttpModule } from '@nestjs/axios';
 
 import flutterwaveConfig from '../../infrastructure/config/flutterwave.config';
 import ledgerEngineConfig from '../../infrastructure/config/ledger-engine.config';
+import { SystemAccountService } from '../accounts/application/services/system-account.service';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 
 // Domain ports
@@ -104,6 +105,7 @@ const queryHandlers = [GetTransferByReferenceHandler, ListMyTransfersHandler];
         TRANSFER_REPOSITORY,
         LedgerEngineClient,
         PrismaService,
+        SystemAccountService,
       ],
       useFactory: (
         configService: ConfigService,
@@ -111,6 +113,7 @@ const queryHandlers = [GetTransferByReferenceHandler, ListMyTransfersHandler];
         transferRepository: ITransferRepository,
         ledgerEngineClient: LedgerEngineClient,
         prismaService: PrismaService,
+        systemAccounts: SystemAccountService,
       ) => {
         if (configService.get<boolean>('ledgerEngine.enabled', false)) {
           return new GrpcInternalTransferExecutor(
@@ -119,7 +122,11 @@ const queryHandlers = [GetTransferByReferenceHandler, ListMyTransfersHandler];
             ledgerEngineClient,
           );
         }
-        return new PrismaInternalTransferExecutor(prismaService, transferRepository);
+        return new PrismaInternalTransferExecutor(
+          prismaService,
+          transferRepository,
+          systemAccounts,
+        );
       },
     },
     { provide: FLUTTERWAVE_TRANSFER_CLIENT, useClass: FlutterwaveTransferAdapter },

@@ -25,6 +25,13 @@ export interface LedgerEntryProps {
   /** Business reference of the originating operation (transfer reference, admin ops reference, ...). */
   reference: string;
   /**
+   * Groups the entries of a single movement. Both legs of a transfer —
+   * the debit and its matching credit — carry the same journalId, which
+   * is what makes this a double-entry ledger rather than a list of
+   * unrelated balance changes: the entries of one journal sum to zero.
+   */
+  journalId: string;
+  /**
    * `eventId` of the domain event this entry was projected from.
    * Doubles as the idempotency key: a unique constraint on it makes
    * re-delivery of the same event a no-op instead of a double-post.
@@ -63,6 +70,8 @@ export class LedgerEntry {
     amount: Money;
     balanceAfter: Money;
     reference: string;
+    /** Defaults to the reference, so both legs of one movement group together. */
+    journalId?: string;
     sourceEventId: string;
     occurredAt: Date;
   }): LedgerEntry {
@@ -91,6 +100,7 @@ export class LedgerEntry {
       balanceAfter: params.balanceAfter,
       entryType: LedgerEntry.classify(params.reference),
       reference: params.reference,
+      journalId: params.journalId ?? params.reference,
       sourceEventId: params.sourceEventId,
       occurredAt: params.occurredAt,
       createdAt: new Date(),
@@ -163,6 +173,10 @@ export class LedgerEntry {
 
   get reference(): string {
     return this.props.reference;
+  }
+
+  get journalId(): string {
+    return this.props.journalId;
   }
 
   get sourceEventId(): string {
