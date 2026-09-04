@@ -50,13 +50,19 @@
   // generate-swagger-docs.ts is deliberately absent: it is a standalone
   // script, not part of any application, and including it made every build
   // depend on it compiling.
+  // `tests/` is included because ESLint's type-aware rules resolve each
+  // file through this tsconfig's project scope (parserOptions.project), and
+  // the lint script targets tests/**/*.ts directly. Leaving it out here
+  // once caused ESLint to fail outright on every file under tests/ with
+  // "TSConfig does not include this file" instead of linting it.
   "include": [
     "apps/**/*.ts",
     "gateway/**/*.ts",
     "modules/**/*.ts",
     "shared/**/*.ts",
     "infrastructure/**/*.ts",
-    "integrations/**/*.ts"
+    "integrations/**/*.ts",
+    "tests/**/*.ts"
   ],
   // Spec files stay in scope so `tsc --noEmit` type-checks them; each
   // app's tsconfig.app.json already excludes them from emitted output.

@@ -120,9 +120,7 @@ export class PrismaInternalTransferExecutor implements IInternalTransferExecutor
         // exceeded total credits by the fee on every single transfer, and no
         // trial balance could ever balance.
         if (!params.fee.isZero()) {
-          const feeAccount = await this.systemAccounts.feeRevenueAccount(
-            params.fee.getCurrency(),
-          );
+          const feeAccount = await this.systemAccounts.feeRevenueAccount(params.fee.getCurrency());
           feeAccount.credit(params.fee, transfer.reference.getValue());
           await this.saveAccountInTransaction(tx, feeAccount);
           feeEvents = feeAccount.pullDomainEvents();

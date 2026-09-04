@@ -18,9 +18,7 @@ export class ListMyTransfersHandler implements IQueryHandler<
     @Inject(TRANSFER_REPOSITORY) private readonly transferRepository: ITransferRepository,
   ) {}
 
-  async execute(
-    query: ListMyTransfersQuery,
-  ): Promise<PaginatedResponseDto<TransferResponseDto>> {
+  async execute(query: ListMyTransfersQuery): Promise<PaginatedResponseDto<TransferResponseDto>> {
     const { transfers, total } = await this.transferRepository.findPageByUserId(
       query.userId,
       (query.page - 1) * query.limit,

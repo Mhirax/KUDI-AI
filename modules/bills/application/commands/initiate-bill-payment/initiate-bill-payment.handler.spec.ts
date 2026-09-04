@@ -114,7 +114,7 @@ describe('InitiateBillPaymentHandler (saga)', () => {
 
     // Same aggregate instance is re-fetched for compensation in this mock setup.
     expect(account.balance.toMajorUnitsString()).toBe('5000.00');
-    const lastSaved = billPaymentRepository.save.mock.calls.at(-1)![0];
+    const lastSaved = billPaymentRepository.save.mock.calls.at(-1)[0];
     expect(lastSaved.status).toBe(TransactionStatus.REVERSED);
   });
 

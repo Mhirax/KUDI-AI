@@ -91,7 +91,7 @@ export class User {
    */
   assertCanAttemptLogin(): void {
     if (this.isCurrentlyLocked()) {
-      throw new AccountLockedException(this.props.lockedUntil as Date);
+      throw new AccountLockedException(this.props.lockedUntil);
     }
     if (
       this.props.status !== UserStatus.ACTIVE &&

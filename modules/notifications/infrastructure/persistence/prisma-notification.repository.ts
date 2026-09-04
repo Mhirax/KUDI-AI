@@ -50,7 +50,10 @@ export class PrismaNotificationRepository implements INotificationRepository {
       }),
       this.prisma.notification.count({ where }),
     ]);
-    return { notifications: records.map((record: any) => NotificationMapper.toDomain(record)), total };
+    return {
+      notifications: records.map((record: any) => NotificationMapper.toDomain(record)),
+      total,
+    };
   }
 
   async countUnread(userId: string): Promise<number> {

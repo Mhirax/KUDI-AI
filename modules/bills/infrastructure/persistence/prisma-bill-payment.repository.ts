@@ -44,7 +44,10 @@ export class PrismaBillPaymentRepository implements IBillPaymentRepository {
       }),
       this.prisma.billPayment.count({ where }),
     ]);
-    return { billPayments: records.map((record: any) => BillPaymentMapper.toDomain(record)), total };
+    return {
+      billPayments: records.map((record: any) => BillPaymentMapper.toDomain(record)),
+      total,
+    };
   }
 
   async save(billPayment: BillPayment): Promise<void> {

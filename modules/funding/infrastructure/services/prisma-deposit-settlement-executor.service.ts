@@ -91,9 +91,7 @@ export class PrismaDepositSettlementExecutor implements IDepositSettlementExecut
       // therefore has to be topped up as deposits draw it down — an admin
       // credit — and an InsufficientFundsException here means exactly that:
       // the float is exhausted, not that the customer did anything wrong.
-      const settlement = await this.systemAccounts.settlementAccount(
-        deposit.amount.getCurrency(),
-      );
+      const settlement = await this.systemAccounts.settlementAccount(deposit.amount.getCurrency());
       settlement.debit(deposit.amount, deposit.reference.getValue());
       account.credit(deposit.amount, deposit.reference.getValue());
 
