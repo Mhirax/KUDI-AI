@@ -1,10 +1,15 @@
 # Kudi AI Bank — Backend Monorepo
 
 Enterprise fintech backend, designed to serve millions of users.
-**Phase 1 — Enterprise Foundation.** This repository currently contains
-architecture scaffolding only: no business logic, no APIs, no
-controllers. It exists to lock in structure, conventions, and tooling
-before any domain module is implemented.
+
+**Current state.** Twelve domain modules are implemented — identity,
+accounts, transfers, funding, ledger, compliance, savings, loans, cards,
+bills, notifications and rewards — behind 67 routes across three
+applications. `npm run build` is clean, 130 unit tests pass, and the
+mobile API boots and serves OpenAPI docs at `/api/v1/docs`.
+
+It is usable for development and for building a frontend against. It is
+not ready to hold real customer money: see *Known limitations* below.
 
 ## Technology Stack
 
@@ -88,3 +93,26 @@ See `/modules/README.md` for full module status.
   every new account with the ledger engine on open)
 - Fee-engine, settlement-engine, reconciliation-engine, financial-engine —
   not yet wired (same gRPC pattern is the template; see `/rust/README.md`)
+
+## Known limitations
+
+Honest about what is not finished, so nobody plans around the wrong thing.
+
+- **The Rust ledger engine is not in the request path.** `LEDGER_ENGINE_ENABLED`
+  is false, so transfers run through the Prisma executor. The engine has its
+  own schema and its own idempotency, and needs its own database before it is
+  switched on.
+- **A customer cannot fund their own account.** `POST /accounts/:id/credit` is
+  admin-only, correctly. Real funding runs through Flutterwave, which needs
+  provider credentials. On a fresh environment every account sits at `0.00`.
+- **New accounts are `PENDING_VERIFICATION`,** not active. KYC belongs in any
+  client flow from the start.
+- **No account-name enquiry and no bank list.** External transfers take a
+  3-digit bank code and a typed recipient name, with nothing to resolve or
+  verify either.
+- **`prisma migrate` was destructive against the existing database** and is
+  now safe only because the schema was reconciled with it. Check
+  `prisma migrate diff` before running any migration against a database with
+  data in it.
+- **TypeScript strict mode is off** (`strictNullChecks`, `noImplicitAny`).
+  Turning it back on is worth doing while the codebase is this size.

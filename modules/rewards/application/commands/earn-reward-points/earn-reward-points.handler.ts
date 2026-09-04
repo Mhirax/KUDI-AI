@@ -55,7 +55,17 @@ export class EarnRewardPointsHandler implements ICommandHandler<EarnRewardPoints
 
     let account = await this.rewardAccountRepository.findByUserId(command.userId);
     if (!account) {
+      // Persist the new account at version 0 before mutating it.
+      //
+      // The repository decides between insert and update by version:
+      // `version - 1 < 0` means insert. earn() calls touch(), which bumps
+      // the version to 1, so a freshly opened account went down the update
+      // path against a row that did not exist yet — updateMany matched
+      // nothing and raised CONCURRENT_MODIFICATION. The effect was that
+      // every user's first ever reward-earning event failed, reported as a
+      // concurrency conflict that had not happened.
       account = RewardAccount.open(command.userId);
+      await this.rewardAccountRepository.save(account);
     }
 
     account.earn(points, command.sourceReference);

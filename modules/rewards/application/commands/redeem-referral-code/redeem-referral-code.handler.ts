@@ -57,7 +57,12 @@ export class RedeemReferralCodeHandler implements ICommandHandler<
 
     let refereeAccount = await this.rewardAccountRepository.findByUserId(command.userId);
     if (!refereeAccount) {
+      // Persist at version 0 before the bonus mutates it: the repository
+      // routes on version, and awardReferralBonus() bumps it, which would
+      // send a brand-new account down the update path against a row that
+      // does not exist. See EarnRewardPointsHandler for the same fix.
       refereeAccount = RewardAccount.open(command.userId);
+      await this.rewardAccountRepository.save(refereeAccount);
     }
 
     referrerAccount.awardReferralBonus(REFERRER_BONUS_POINTS, 'REFERRER');

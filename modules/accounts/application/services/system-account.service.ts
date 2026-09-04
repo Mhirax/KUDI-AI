@@ -83,12 +83,18 @@ export class SystemAccountService {
       currency,
     });
 
-    // System accounts must be postable immediately; a customer account
-    // waits for KYC, but there is nobody to verify here.
-    account.activate();
-    account.pullDomainEvents();
-
     try {
+      // Two writes on purpose. The repository chooses insert vs update by
+      // version (`version - 1 < 0` means insert), and activate() calls
+      // touch(), which bumps the version to 1. Activating before the first
+      // save would therefore send a brand-new row down the update path,
+      // match nothing, and fail as a phantom concurrency conflict.
+      await this.accountRepository.save(account);
+
+      // System accounts must be postable immediately; a customer account
+      // waits for KYC, but there is nobody to verify here.
+      account.activate();
+      account.pullDomainEvents();
       await this.accountRepository.save(account);
       this.logger.log(`Provisioned ${accountType} account for ${currency}`);
       return account;

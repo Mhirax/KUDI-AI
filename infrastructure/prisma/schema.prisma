@@ -223,7 +223,14 @@ model KycProfile {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  /// Sanctions screening state. Present in the database but previously
+  /// missing from this schema, so a Prisma migration would have dropped
+  /// both columns and the index over them.
+  sanctionsFlaggedAt DateTime?
+  sanctionsClearedAt DateTime?
+
   @@index([tier])
+  @@index([sanctionsFlaggedAt, sanctionsClearedAt])
   @@map("kyc_profiles")
 }
 
@@ -604,4 +611,98 @@ model ReferralRedemption {
 
   @@index([referrerUserId])
   @@map("referral_redemptions")
+}
+
+// ---------------------------------------------------------------------------
+// Reconciled from the live database.
+//
+// These four tables and three enums existed in the database but were absent
+// from this schema, which made `prisma migrate` destructive: it read them as
+// objects to drop. sanctions_list_entries alone held 7,481 rows of AML
+// screening data, and kyc_audit_log is a compliance audit trail.
+//
+// No application code references them yet — they are ahead of the code, not
+// behind it. They are declared here so the schema describes the database it
+// actually points at, and so a migration stops proposing to delete them.
+// ---------------------------------------------------------------------------
+
+enum IdempotencyKeyStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+/// Makes a money-moving request safe to retry: the same (user, scope, key)
+/// resolves to the original result instead of acting twice.
+model IdempotencyKey {
+  id         String               @id @default(uuid())
+  userId     String
+  scope      String
+  key        String
+  status     IdempotencyKeyStatus @default(IN_PROGRESS)
+  resourceId String?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  @@unique([userId, scope, key])
+  @@map("idempotency_keys")
+}
+
+enum KycAuditEventType {
+  VERIFICATION_ATTEMPT
+  TIER_CHANGE
+  SANCTIONS_SCREENING
+}
+
+enum KycAuditOutcome {
+  PASSED
+  FAILED
+}
+
+/// Append-only record of every KYC decision. This is the trail a regulator
+/// asks for; it must never be dropped or edited.
+model KycAuditLog {
+  id                String            @id @default(uuid())
+  userId            String
+  kycProfileId      String
+  eventType         KycAuditEventType
+  verificationType  String?
+  outcome           KycAuditOutcome?
+  failureReason     String?
+  previousTier      KycTier?
+  newTier           KycTier?
+  notes             String?
+  performedByUserId String?
+  createdAt         DateTime          @default(now())
+
+  @@index([kycProfileId])
+  @@index([userId])
+  @@map("kyc_audit_log")
+}
+
+/// Per-tier transaction and balance ceilings. Amounts are minor units.
+model KycTierLimit {
+  tier                KycTier  @id
+  currency            String   @default("NGN")
+  perTransactionLimit BigInt?
+  dailyTransferLimit  BigInt?
+  maxBalance          BigInt?
+  updatedAt           DateTime @updatedAt
+
+  @@map("kyc_tier_limits")
+}
+
+/// Names screened against during onboarding, loaded from published
+/// sanctions lists.
+model SanctionsListEntry {
+  id         String   @id @default(uuid())
+  source     String
+  externalId String
+  fullName   String
+  program    String?
+  remarks    String?
+  createdAt  DateTime @default(now())
+
+  @@unique([source, externalId])
+  @@index([source])
+  @@map("sanctions_list_entries")
 }
