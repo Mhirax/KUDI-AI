@@ -138,6 +138,21 @@ export class PrismaInternalTransferExecutor implements IInternalTransferExecutor
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Internal transfer failed';
+
+      // `transfer` has never been persisted at this point — the only INSERT
+      // is the single combined write on the success path, inside the
+      // transaction that just rolled back. Calling markFailed() first would
+      // bump the version via touch() before any row exists, so save() would
+      // read that as an update to an existing row (previousVersion = 0,
+      // matching nothing) and report a phantom "modified concurrently"
+      // conflict — masking whatever actually went wrong (insufficient
+      // funds, an inactive account, ...) behind a misleading one. Same
+      // "persist before you mutate a freshly-opened aggregate" fix applied
+      // to reward accounts and system accounts elsewhere in this session:
+      // save the pristine, version-0 transfer first (a genuine insert),
+      // then mutate and save again.
+      await this.transferRepository.save(transfer);
+
       transfer.markFailed(reason);
       await this.transferRepository.save(transfer);
       throw error;
