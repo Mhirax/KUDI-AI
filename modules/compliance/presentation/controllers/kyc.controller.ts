@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../../../shared/decorators/current-user.decorator';
 import { SubmitBvnVerificationDto } from '../../application/dto/submit-bvn-verification.dto';
 import { SubmitNinVerificationDto } from '../../application/dto/submit-nin-verification.dto';
@@ -21,6 +22,11 @@ export class KycController {
     return this.queryBus.execute(new GetMyKycStatusQuery(user.sub));
   }
 
+  // BVN verification calls a real, presumably billed, provider endpoint
+  // and is a natural target for brute-forcing identity documents against a
+  // logged-in session. Five attempts a minute is enough for someone
+  // correcting a typo, far too few to work through guesses.
+  @Throttle({ sustained: { ttl: 60000, limit: 5 } })
   @Post('verify-bvn')
   @HttpCode(HttpStatus.OK)
   async verifyBvn(
@@ -30,6 +36,7 @@ export class KycController {
     return this.commandBus.execute(new SubmitBvnVerificationCommand(user.sub, dto.bvn));
   }
 
+  @Throttle({ sustained: { ttl: 60000, limit: 5 } })
   @Post('verify-nin')
   @HttpCode(HttpStatus.OK)
   async verifyNin(
