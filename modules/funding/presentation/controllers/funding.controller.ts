@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../../../shared/decorators/current-user.decorator';
 import { PaginationDto } from '../../../../shared/dto/pagination.dto';
 import { PaginatedResponseDto } from '../../../../shared/dto/paginated-response.dto';
@@ -30,6 +31,10 @@ export class FundingController {
     private readonly queryBus: QueryBus,
   ) {}
 
+  // Calls a real, presumably billed, Flutterwave endpoint. Capped at
+  // one per Kudi account already, but that only bites after the call —
+  // this stops the call itself from being hammered.
+  @Throttle({ sustained: { ttl: 60000, limit: 5 } })
   @Post('virtual-accounts')
   @HttpCode(HttpStatus.CREATED)
   async createVirtualAccount(
@@ -46,6 +51,9 @@ export class FundingController {
     return this.queryBus.execute(new GetMyVirtualAccountsQuery(user.sub));
   }
 
+  // Calls Flutterwave to open a checkout session — same reasoning as
+  // virtual-account creation above.
+  @Throttle({ sustained: { ttl: 60000, limit: 10 } })
   @Post('checkout')
   @HttpCode(HttpStatus.CREATED)
   async initiateCheckout(

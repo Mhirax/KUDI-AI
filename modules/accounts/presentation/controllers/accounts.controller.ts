@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../../../shared/decorators/current-user.decorator';
 import { Roles } from '../../../../shared/decorators/roles.decorator';
 import { RolesGuard } from '../../../../gateway/guards/roles.guard';
@@ -46,6 +47,10 @@ export class AccountsController {
     private readonly queryBus: QueryBus,
   ) {}
 
+  // Opening an account consumes a real account number from a finite
+  // generator and writes a standing row every downstream query scans —
+  // cheap individually, not cheap to have hammered.
+  @Throttle({ sustained: { ttl: 60000, limit: 10 } })
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async open(

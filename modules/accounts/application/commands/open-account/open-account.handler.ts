@@ -11,6 +11,8 @@ import {
 } from '../../../domain/services/account-number-generator.interface';
 import { Account } from '../../../domain/entities/account.entity';
 import { AccountResponseDto } from '../../dto/account-response.dto';
+import { AccountLimitExceededException } from '../../../domain/exceptions/account-limit-exceeded.exception';
+import { AccountStatus } from '../../../../../shared/enums/account-status.enum';
 
 /**
  * Use case: open a new account/wallet for a user. Accounts start in
@@ -22,6 +24,16 @@ import { AccountResponseDto } from '../../dto/account-response.dto';
 @Injectable()
 @CommandHandler(OpenAccountCommand)
 export class OpenAccountHandler implements ICommandHandler<OpenAccountCommand, AccountResponseDto> {
+  // Nothing stopped a single user from opening accounts without limit,
+  // and each one is a real NUBAN-style account number consumed from a
+  // finite generator plus a standing row every downstream query has to
+  // scan. Ten open accounts covers every legitimate combination of
+  // WALLET/SAVINGS/CURRENT in more than one currency with room to
+  // spare; CLOSED accounts don't count against it, so closing old ones
+  // frees the slot back up. An engineering safety default, adjustable,
+  // not a product policy.
+  private static readonly MAX_ACCOUNTS_PER_USER = 10;
+
   constructor(
     @Inject(ACCOUNT_REPOSITORY) private readonly accountRepository: IAccountRepository,
     @Inject(ACCOUNT_NUMBER_GENERATOR)
@@ -30,6 +42,18 @@ export class OpenAccountHandler implements ICommandHandler<OpenAccountCommand, A
   ) {}
 
   async execute(command: OpenAccountCommand): Promise<AccountResponseDto> {
+    const existingAccounts = await this.accountRepository.findAllByUserId(command.userId);
+    const openAccounts = existingAccounts.filter(
+      (existing) => existing.status !== AccountStatus.CLOSED,
+    );
+
+    if (openAccounts.length >= OpenAccountHandler.MAX_ACCOUNTS_PER_USER) {
+      throw new AccountLimitExceededException(
+        command.userId,
+        OpenAccountHandler.MAX_ACCOUNTS_PER_USER,
+      );
+    }
+
     const accountNumber = await this.accountNumberGenerator.generate();
 
     const account = Account.open({
