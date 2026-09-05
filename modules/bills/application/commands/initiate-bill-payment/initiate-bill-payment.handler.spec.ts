@@ -114,7 +114,14 @@ describe('InitiateBillPaymentHandler (saga)', () => {
 
     // Same aggregate instance is re-fetched for compensation in this mock setup.
     expect(account.balance.toMajorUnitsString()).toBe('5000.00');
-    const lastSaved = billPaymentRepository.save.mock.calls.at(-1)[0];
+
+    // Asserted explicitly, rather than indexing .at(-1)[0] straight away:
+    // .at() returns `T | undefined` under strictNullChecks, and asserting
+    // the call actually happened turns "no calls" into a clear test
+    // failure instead of a TypeError pointing at the wrong line.
+    expect(billPaymentRepository.save).toHaveBeenCalled();
+    const calls = billPaymentRepository.save.mock.calls;
+    const lastSaved = calls[calls.length - 1][0];
     expect(lastSaved.status).toBe(TransactionStatus.REVERSED);
   });
 

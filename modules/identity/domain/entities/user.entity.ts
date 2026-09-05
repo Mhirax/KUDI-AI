@@ -90,8 +90,18 @@ export class User {
    * at the boundary.
    */
   assertCanAttemptLogin(): void {
-    if (this.isCurrentlyLocked()) {
-      throw new AccountLockedException(this.props.lockedUntil);
+    // Checked inline, rather than behind a private isLocked()-style helper
+    // returning plain boolean: `props` is a private field, so a type
+    // predicate on `this` cannot narrow it (TypeScript rejects the
+    // intersection outright — "private in some constituents"). Narrowing
+    // `lockedUntil` directly, right here, is what lets the compiler carry
+    // the non-null fact through to the throw below without a cast.
+    const { status, lockedUntil } = this.props;
+    const isCurrentlyLocked =
+      status === UserStatus.LOCKED && lockedUntil !== null && lockedUntil.getTime() > Date.now();
+
+    if (isCurrentlyLocked) {
+      throw new AccountLockedException(lockedUntil);
     }
     if (
       this.props.status !== UserStatus.ACTIVE &&
@@ -129,18 +139,6 @@ export class User {
     this.props.passwordHash = newPasswordHash;
     this.props.updatedAt = new Date();
     this.addDomainEvent(new PasswordChangedEvent(this.props.id));
-  }
-
-  private isCurrentlyLocked(): boolean {
-    if (this.props.status !== UserStatus.LOCKED || !this.props.lockedUntil) {
-      return false;
-    }
-    if (this.props.lockedUntil.getTime() <= Date.now()) {
-      // Lock has naturally expired; caller (application layer) is
-      // responsible for persisting the unlock via `unlock()`.
-      return false;
-    }
-    return true;
   }
 
   unlock(): void {
